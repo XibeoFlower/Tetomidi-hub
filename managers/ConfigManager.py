@@ -14,7 +14,7 @@ class ConfigManager:
         self.save_dir = os.path.join(self.root_dir, 'saves')
         os.makedirs(self.save_dir, exist_ok=True)
         
-        self.config_dir = Path.home() / ".humidi"
+        self.config_dir = Path.home() / ".tetomidi"
         self.config_path = self.config_dir / "config.json"
         self.config_dir.mkdir(exist_ok=True)
 
