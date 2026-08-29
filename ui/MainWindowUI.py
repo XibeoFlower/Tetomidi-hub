@@ -13,16 +13,16 @@ from ui.TranslatorTab import TranslatorTab
 from ui.VisualizerTab import VisualizerTab
 from ui.DebugTab import DebugTab
 from ui.theme import ThemeManager, generate_stylesheet
+from ui.animated_button import AnimatedButton
+from managers.i18n import I18nManager
 
 
 def _resource_path(*relative_parts: str) -> str:
     """Resolve a bundled asset path that works both when running from source
-    and when frozen into a PyInstaller onefile build (see main.py's icon.ico
-    handling for the same pattern)."""
+    and when frozen into a PyInstaller onefile build."""
     if getattr(sys, 'frozen', False):
         base_path = sys._MEIPASS
     else:
-        # ui/MainWindowUI.py -> project root is one level up
         base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, *relative_parts)
 
@@ -93,29 +93,29 @@ class MainWindowUI(QObject):
         cs_layout.setSpacing(4)
 
         # Row 1: filename
-        self._collapsed_file_label = ElidingLabel("No file selected.")
+        self._collapsed_file_label = ElidingLabel(I18nManager.t("no_file_selected"))
         self._collapsed_file_label.setObjectName("file_path_label")
         cs_layout.addWidget(self._collapsed_file_label)
 
         # Row 2: humanize checkbox
-        self._collapsed_humanize_check = QCheckBox("Humanize")
-        self._collapsed_humanize_check.setToolTip("Enable or disable all humanization at once")
+        self._collapsed_humanize_check = QCheckBox(I18nManager.t("humanization"))
+        self._collapsed_humanize_check.setToolTip(I18nManager.t("tt_humanize_all"))
         cs_layout.addWidget(self._collapsed_humanize_check)
 
         # Row 3: load buttons (icons set in apply_theme)
-        self._collapsed_load_btn = QPushButton("")
+        self._collapsed_load_btn = AnimatedButton("")
         self._collapsed_load_btn.setObjectName("cs_load_btn")
         self._collapsed_load_btn.setIconSize(QSize(16, 16))
-        self._collapsed_load_btn.setToolTip("Open a MIDI file for playback")
-        self._collapsed_load_saved_btn = QPushButton("")
+        self._collapsed_load_btn.setToolTip(I18nManager.t("tt_browse"))
+        self._collapsed_load_saved_btn = AnimatedButton("")
         self._collapsed_load_saved_btn.setObjectName("cs_load_saved_btn")
         self._collapsed_load_saved_btn.setIconSize(QSize(16, 16))
-        self._collapsed_load_saved_btn.setToolTip("Load a saved playback")
+        self._collapsed_load_saved_btn.setToolTip(I18nManager.t("tt_load_save"))
 
         # Keep alive for signal wiring / _set_save_enabled — not shown in layout
-        self._collapsed_save_btn = QPushButton("\uE74E")
+        self._collapsed_save_btn = AnimatedButton("\uE74E")
         self._collapsed_save_btn.setObjectName("cs_save_btn")
-        self._collapsed_save_btn.setToolTip("Save the current playback")
+        self._collapsed_save_btn.setToolTip(I18nManager.t("tt_save_transport"))
         self._collapsed_save_btn.setEnabled(False)
 
         cs_row3 = QHBoxLayout()
@@ -162,16 +162,15 @@ class MainWindowUI(QObject):
         sidebar_vbox.setContentsMargins(0, 0, 0, 0)
         sidebar_vbox.setSpacing(0)
 
-
         self.tabs = QStackedWidget()
         self.tabs.currentChanged.connect(self._on_page_changed)
 
         _NAV_ITEMS = [
-            ("\uE768", "Playback"),
-            ("\uE8D6", "Visualizer"),
-            ("\uE8B1", "Translator"),
-            ("\uE713", "Settings"),
-            ("\uEBE8", "Debug"),
+            ("\uE768", I18nManager.t("nav_playback")),
+            ("\uE8D6", I18nManager.t("nav_visualizer")),
+            ("\uE8B1", I18nManager.t("nav_translator")),
+            ("\uE713", I18nManager.t("nav_settings")),
+            ("\uEBE8", I18nManager.t("nav_debug")),
         ]
         self._nav_btns: list[NavButton] = []
         for i, (icon, label) in enumerate(_NAV_ITEMS):
@@ -182,12 +181,12 @@ class MainWindowUI(QObject):
 
         sidebar_vbox.addStretch()
 
-        # ── Discord contact footer (bottom-left corner) ─────────────────
-        self.discord_btn = QPushButton("  @xiunolove")
+        # ── Discord contact footer ─────────────────────────────────────
+        self.discord_btn = AnimatedButton("  @xiunolove")
         self.discord_btn.setObjectName("discord_footer_btn")
         self.discord_btn.setFlat(True)
         self.discord_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.discord_btn.setToolTip("Discord: @xiunolove — click to copy")
+        self.discord_btn.setToolTip(I18nManager.t("discord_tooltip"))
         avatar_path = _resource_path("discord_avatar.png")
         if os.path.exists(avatar_path):
             self.discord_btn.setIcon(QIcon(avatar_path))
@@ -217,11 +216,11 @@ class MainWindowUI(QObject):
 
         self.tabs.addWidget(self.playback_tab)    # 0
         self.tabs.addWidget(self.visualizer_tab)  # 1
-        self.tabs.addWidget(self.translator_tab)  # 2
+        self.tabs.addWidget(self.translator_tab)   # 2
         self.tabs.addWidget(self.settings_tab)    # 3
         self.tabs.addWidget(self.debug_tab)       # 4
 
-        # ── Convenience aliases for frequently accessed sub-widgets ────
+        # ── Convenience aliases ────────────────────────────────────────
         self.log_output      = self.debug_tab.log_output
         self.timeline_widget = self.visualizer_tab.timeline_widget
         self.piano_widget    = self.visualizer_tab.piano_widget
@@ -248,25 +247,25 @@ class MainWindowUI(QObject):
         btn_row.setContentsMargins(0, 0, 0, 0)
         btn_row.setSpacing(5)
 
-        self.play_button = QPushButton("▶  Play")
+        self.play_button = AnimatedButton("▶  " + I18nManager.t("play"))
         self.play_button.setObjectName("play_button")
-        self.play_button.setToolTip("Start, pause, or resume playback")
+        self.play_button.setToolTip(I18nManager.t("tt_play"))
 
-        self.stop_button = QPushButton("■  Stop")
+        self.stop_button = AnimatedButton("■  " + I18nManager.t("stop"))
         self.stop_button.setObjectName("stop_button")
-        self.stop_button.setToolTip("Stop playback and reset to the beginning")
+        self.stop_button.setToolTip(I18nManager.t("tt_stop"))
 
         self.time_label = QLabel("00:00 / 00:00")
         self.time_label.setObjectName("time_label")
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.save_button = QPushButton("Save")
+        self.save_button = AnimatedButton(I18nManager.t("save"))
         self.save_button.setObjectName("save_button")
-        self.save_button.setToolTip("Save the current humanized performance to a file for later replay")
+        self.save_button.setToolTip(I18nManager.t("tt_save_transport"))
 
-        self.reset_button = QPushButton("Reset")
+        self.reset_button = AnimatedButton(I18nManager.t("reset"))
         self.reset_button.setObjectName("reset_button")
-        self.reset_button.setToolTip("Reset all settings to their default values")
+        self.reset_button.setToolTip(I18nManager.t("tt_reset"))
 
         btn_row.addWidget(self.play_button)
         btn_row.addWidget(self.stop_button)
@@ -276,9 +275,9 @@ class MainWindowUI(QObject):
         btn_row.addWidget(self.save_button)
         btn_row.addWidget(self.reset_button)
 
-        self.collapse_btn = QPushButton("▲  Collapse")
+        self.collapse_btn = AnimatedButton("▲  " + I18nManager.t("collapse"))
         self.collapse_btn.setObjectName("collapse_btn")
-        self.collapse_btn.setToolTip("Collapse to mini mode")
+        self.collapse_btn.setToolTip(I18nManager.t("tt_collapse"))
         self.collapse_btn.clicked.connect(self._toggle_collapsed)
         btn_row.addWidget(self.collapse_btn)
 
@@ -320,7 +319,7 @@ class MainWindowUI(QObject):
     def _copy_discord_tag(self) -> None:
         QGuiApplication.clipboard().setText("@xiunolove")
         original_text = "  @xiunolove"
-        self.discord_btn.setText("  Copied!")
+        self.discord_btn.setText("  " + I18nManager.t("msg_copied"))
         QTimer.singleShot(1500, lambda: self.discord_btn.setText(original_text))
 
     # ── Theme ──────────────────────────────────────────────────────────
@@ -433,8 +432,8 @@ class MainWindowUI(QObject):
             self._expanded_size = self.main_window.size()
             self._body.setVisible(False)
             self._collapsed_strip.setVisible(True)
-            self.collapse_btn.setText("▼  Expand")
-            self.collapse_btn.setToolTip("Restore full window")
+            self.collapse_btn.setText("▼  " + I18nManager.t("expand"))
+            self.collapse_btn.setToolTip(I18nManager.t("tt_expand"))
             self.collapse_btn.setMinimumWidth(0)
             self.collapse_btn.setMaximumWidth(16777215)
             self.collapse_btn.setProperty("strip_mode", True)
@@ -468,8 +467,8 @@ class MainWindowUI(QObject):
         else:
             self._body.setVisible(True)
             self._collapsed_strip.setVisible(False)
-            self.collapse_btn.setText("▲  Collapse")
-            self.collapse_btn.setToolTip("Collapse to mini mode")
+            self.collapse_btn.setText("▲  " + I18nManager.t("collapse"))
+            self.collapse_btn.setToolTip(I18nManager.t("tt_collapse"))
             self.collapse_btn.setProperty("strip_mode", False)
             self.collapse_btn.style().unpolish(self.collapse_btn)
             self.collapse_btn.style().polish(self.collapse_btn)
@@ -486,13 +485,12 @@ class MainWindowUI(QObject):
                 btn.setProperty("icon_mode", False)
                 btn.style().unpolish(btn)
                 btn.style().polish(btn)
-            self.stop_button.setText("■  Stop")
+            self.stop_button.setText("■  " + I18nManager.t("stop"))
             self.save_button.setVisible(True)
-            self.save_button.setText("Save")
+            self.save_button.setText(I18nManager.t("save"))
             self.reset_button.setVisible(True)
-            self.reset_button.setText("Reset")
+            self.reset_button.setText(I18nManager.t("reset"))
             self._transport_bar.setVisible(True)
-            # play_button text restored by _sync_play_button (connected to collapse_btn.clicked)
             self.main_window.setMinimumWidth(820)
             self.main_window.setMinimumHeight(485)
             self.main_window.resize(self._expanded_size)
@@ -536,7 +534,7 @@ class MainWindowUI(QObject):
 
     def gather_playback_config(self) -> dict:
         cfg = self.playback_tab.gather_playback_config()
-        cfg['use_ai_pedal'] = False  # AI pedal is driven by pedal_style='ai', not this flag
+        cfg['use_ai_pedal'] = False
         return cfg
 
     def gather_app_config(self) -> dict:
