@@ -30,6 +30,7 @@ rm -rf build dist TetoMidi.spec
 echo "Dang build binary..."
 pyinstaller --noconfirm --onefile \
     --name TetoMidi \
+    --add-data "icon.ico:." \
     main.py
 
 chmod +x dist/TetoMidi
