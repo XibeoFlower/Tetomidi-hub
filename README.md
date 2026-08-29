@@ -4,7 +4,26 @@
 
 This README covers every tab and setting in the app, plus full install/build instructions for Windows and Linux.
 
----
+---<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 577 553" width="577" height="553">
+  <rect width="100%" height="100%" fill="#000000"/>
+  <text x="288.5" y="240" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-size="110" 
+        font-weight="400" 
+        fill="#FFFFFF" 
+        text-anchor="middle" 
+        dominant-baseline="middle"
+        letter-spacing="-2">teto</text>
+  <text x="288.5" y="340" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-size="120" 
+        font-weight="700" 
+        fill="#FFFFFF" 
+        text-anchor="middle" 
+        dominant-baseline="middle"
+        letter-spacing="2">MIDI</text>
+</svg>
+
 
 ## Table of Contents
 
@@ -13,7 +32,8 @@ This README covers every tab and setting in the app, plus full install/build ins
 3. [Playback Tab](#playback-tab)
 4. [Visualizer Tab](#visualizer-tab)
 5. [Translator Tab](#translator-tab)
-6. [Humanization Options (Detailed)](#humanization-options-detailed)
+6. [Humanization Options (Detailed)](#humanization-options-detailed)<img width="577" height="553" alt="teto-midi-logo" src="https://github.com/user-attachments/assets/8d5ec54c-1fc5-45e1-8bae-f90fc695d505" />
+
 7. [Settings & Debug Tabs](#settings--debug-tabs)
 8. [Themes](#themes)
 9. [Keyboard Shortcuts](#keyboard-shortcuts)
