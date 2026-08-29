@@ -10,7 +10,6 @@ from ui.SettingsTab import SettingsTab
 from ui.TranslatorTab import TranslatorTab
 from ui.VisualizerTab import VisualizerTab
 from ui.DebugTab import DebugTab
-from ui.LicenseTab import LicenseTab
 from ui.theme import ThemeManager, generate_stylesheet
 
 
@@ -159,7 +158,6 @@ class MainWindowUI(QObject):
             ("\uE8B1", "Translator"),
             ("\uE713", "Settings"),
             ("\uEBE8", "Debug"),
-            ("\uE946", "License"),
         ]
         self._nav_btns: list[NavButton] = []
         for i, (icon, label) in enumerate(_NAV_ITEMS):
@@ -179,14 +177,12 @@ class MainWindowUI(QObject):
         self.translator_tab = TranslatorTab()
         self.settings_tab   = SettingsTab()
         self.debug_tab      = DebugTab()
-        self.license_tab    = LicenseTab()
 
         self.tabs.addWidget(self.playback_tab)    # 0
         self.tabs.addWidget(self.visualizer_tab)  # 1
         self.tabs.addWidget(self.translator_tab)  # 2
         self.tabs.addWidget(self.settings_tab)    # 3
         self.tabs.addWidget(self.debug_tab)       # 4
-        self.tabs.addWidget(self.license_tab)     # 5
 
         # ── Convenience aliases for frequently accessed sub-widgets ────
         self.log_output      = self.debug_tab.log_output
