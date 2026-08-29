@@ -8,6 +8,7 @@ from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap, QGuiApplication
 
 from ui.widgets import NavButton
 from ui.PlaybackTab import PlaybackTab
+from ui.GuitarTab import GuitarTab
 from ui.SettingsTab import SettingsTab
 from ui.TranslatorTab import TranslatorTab
 from ui.VisualizerTab import VisualizerTab
@@ -169,6 +170,7 @@ class MainWindowUI(QObject):
             ("\uE768", I18nManager.t("nav_playback")),
             ("\uE8D6", I18nManager.t("nav_visualizer")),
             ("\uE8B1", I18nManager.t("nav_translator")),
+            ("\uE83E", I18nManager.t("nav_guitar")),   # Guitar icon
             ("\uE713", I18nManager.t("nav_settings")),
             ("\uEBE8", I18nManager.t("nav_debug")),
         ]
@@ -211,14 +213,16 @@ class MainWindowUI(QObject):
         self.playback_tab   = PlaybackTab()
         self.visualizer_tab = VisualizerTab()
         self.translator_tab = TranslatorTab()
+        self.guitar_tab     = GuitarTab()      # NEW
         self.settings_tab   = SettingsTab()
         self.debug_tab      = DebugTab()
 
         self.tabs.addWidget(self.playback_tab)    # 0
         self.tabs.addWidget(self.visualizer_tab)  # 1
-        self.tabs.addWidget(self.translator_tab)   # 2
-        self.tabs.addWidget(self.settings_tab)    # 3
-        self.tabs.addWidget(self.debug_tab)       # 4
+        self.tabs.addWidget(self.translator_tab)  # 2
+        self.tabs.addWidget(self.guitar_tab)      # 3  NEW
+        self.tabs.addWidget(self.settings_tab)    # 4
+        self.tabs.addWidget(self.debug_tab)       # 5
 
         # ── Convenience aliases ────────────────────────────────────────
         self.log_output      = self.debug_tab.log_output
@@ -350,6 +354,14 @@ class MainWindowUI(QObject):
         piano_pedal_q = QColor(theme.pedal_color)
         self.piano_widget.pedal_color = piano_pedal_q
         self.piano_widget.update()
+        # Update fretboard colors
+        self.guitar_tab.fretboard.bg_color.setNamedColor(theme.bg_primary)
+        self.guitar_tab.fretboard.fret_color.setNamedColor(theme.border)
+        self.guitar_tab.fretboard.string_color.setNamedColor(theme.text_secondary)
+        self.guitar_tab.fretboard.note_color.setNamedColor(theme.accent)
+        self.guitar_tab.fretboard.note_glow.setNamedColor(theme.accent_play)
+        self.guitar_tab.fretboard.nut_color.setNamedColor(theme.text_primary)
+        self.guitar_tab.fretboard.update()
 
     def _open_theme_dialog(self) -> None:
         from ui.ThemeDialog import ThemeDialog
@@ -513,6 +525,7 @@ class MainWindowUI(QObject):
 
     def update_file_label(self, text: str, tooltip: str = "") -> None:
         self.playback_tab.update_file_label(text, tooltip)
+        self.guitar_tab.update_file_label(text, tooltip)
         self._collapsed_file_label.setText(text)
 
     def set_controls_enabled(self, enabled: bool, ignore_if_loaded: bool = False) -> None:
@@ -527,9 +540,11 @@ class MainWindowUI(QObject):
 
     def reset_controls_to_default(self) -> None:
         self.playback_tab.reset_to_default()
+        self.guitar_tab.reset_to_default()
 
     def load_config_to_ui(self, config: dict, save_dir: str) -> None:
         self.playback_tab.load_config(config)
+        self.guitar_tab.load_config(config)
         self.settings_tab.load_config(config, save_dir)
 
     def gather_playback_config(self) -> dict:
@@ -538,7 +553,11 @@ class MainWindowUI(QObject):
         return cfg
 
     def gather_app_config(self) -> dict:
-        return {**self.playback_tab.gather_app_config(), **self.settings_tab.gather_config()}
+        return {
+            **self.playback_tab.gather_app_config(),
+            **self.guitar_tab.gather_app_config(),
+            **self.settings_tab.gather_config()
+        }
 
     def update_enabled_states(self) -> None:
         self.playback_tab.update_enabled_states()
