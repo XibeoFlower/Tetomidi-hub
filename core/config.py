@@ -14,6 +14,7 @@ class PlaybackConfig(TypedDict, total=False):
     tempo: float
     pedal_style: str
     use_88_key_layout: bool
+    instrument: str  # 'piano' or 'guitar' — selects the KeyMapper pitch range/preset
     simulate_hands: bool
     humanization_on: bool
     vary_timing: bool
