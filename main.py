@@ -13,11 +13,12 @@ import webbrowser
 from managers.UpdateManager import UpdateChecker
 from controllers.PlaybackController import PlaybackController
 from managers.ConfigManager import ConfigManager
+from managers.i18n import I18nManager
 from ui.MainWindowUI import MainWindowUI
 from ui.TrackSelectionDialog import TrackSelectionDialog
 from ui.LoadSaveDialog import LoadSaveDialog
 
-APP_VERSION = "2.0"
+APP_VERSION = "2.1"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -27,18 +28,24 @@ class MainWindow(QMainWindow):
         self.setMinimumHeight(485)
         self.resize(self.minimumWidth(), self.minimumHeight())
 
-        # Set specific Icon base execution path (Required for OS Contexts)
+        # Set specific Icon base execution path
         base_path = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
         icon_path = os.path.join(base_path, 'icon.ico')
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
-        
+
         # Instantiate Domains
         self.config_manager = ConfigManager()
+
+        # Load config early to set language before UI builds
+        loaded_cfg = self.config_manager.load()
+        lang = loaded_cfg.get('language', 'en') if loaded_cfg else 'en'
+        I18nManager.set_language(lang)
+
         self.ui = MainWindowUI(self)
         self.playback_controller = PlaybackController()
         self.hotkey_manager = HotkeyManager()
-        
+
         # Global Application States
         self.loaded_save_data = None
         self.loaded_save_filename = None
@@ -52,11 +59,10 @@ class MainWindow(QMainWindow):
         self._bind_signals()
 
         # Load initialization data
-        loaded_cfg = self.config_manager.load()
         if loaded_cfg:
             self.ui.load_config_to_ui(loaded_cfg, self.config_manager.save_dir)
             self.ui.settings_tab.hk_label.setText(
-                f"Hotkey: {self.hotkey_manager._format_key_string(self.hotkey_manager.current_key)}"
+                f"{I18nManager.t('hotkey')}: {self.hotkey_manager._format_key_string(self.hotkey_manager.current_key)}"
             )
         else:
             self.ui.reset_controls_to_default()
@@ -80,16 +86,20 @@ class MainWindow(QMainWindow):
         self.ui.settings_tab.hk_btn.clicked.connect(self._change_hotkey)
         self.ui.settings_tab.check_update_btn.clicked.connect(self._manual_check_update)
 
+        # Language change
+        self.ui.settings_tab.lang_combo.currentIndexChanged.connect(self._on_language_changed)
+
         # View manipulations bound to Window behavior
         self.ui.collapse_btn.clicked.connect(self._sync_play_button)
         self.ui.settings_tab.always_top_check.toggled.connect(self._toggle_always_on_top)
         self.ui.settings_tab.opacity_slider.valueChanged.connect(self._change_opacity)
 
-        # Settings-tab persistence — save immediately on change so closing without playing doesn't lose them
+        # Settings-tab persistence
         self.ui.settings_tab.always_top_check.toggled.connect(self._save_config)
         self.ui.settings_tab.opacity_slider.valueChanged.connect(self._save_config)
         self.ui.settings_tab.timeline_vis_check.toggled.connect(self._save_config)
         self.ui.settings_tab.piano_vis_check.toggled.connect(self._save_config)
+        self.ui.settings_tab.lang_combo.currentIndexChanged.connect(self._save_config)
 
         # Translator tab
         self.ui.translator_tab.play_sheet_requested.connect(self._on_play_sheet)
@@ -116,6 +126,17 @@ class MainWindow(QMainWindow):
         self.playback_controller.save_successful.connect(self._on_save_successful)
         self.playback_controller.save_failed.connect(self._on_save_failed)
 
+    # --- Language ---
+    def _on_language_changed(self):
+        lang = self.ui.settings_tab.lang_combo.currentData()
+        if lang != I18nManager.get_language():
+            I18nManager.set_language(lang)
+            QMessageBox.information(
+                self, I18nManager.t("language"),
+                "Language changed. Please restart the app to apply fully.\n"
+                "Ngôn ngữ đã thay đổi. Vui lòng khởi động lại ứng dụng để áp dụng đầy đủ."
+            )
+
     # --- Windows Specific GUI Modifications ---
     def _toggle_always_on_top(self, checked):
         flags = self.windowFlags()
@@ -132,45 +153,46 @@ class MainWindow(QMainWindow):
         self.config_manager.save(config_data)
 
     def _browse_save_dir(self):
-        path = QFileDialog.getExistingDirectory(self, "Select Save Directory", self.config_manager.save_dir)
+        path = QFileDialog.getExistingDirectory(self, I18nManager.t("browse"), self.config_manager.save_dir)
         if path:
             self.config_manager.set_save_dir(path)
             self.ui.settings_tab.save_path_input.setText(path)
             self._save_config()
 
     def _change_hotkey(self):
-        QMessageBox.information(self, "Bind Key", "Press the key you want to bind now.")
-        self.ui.settings_tab.hk_btn.setText("Listening...")
+        QMessageBox.information(self, I18nManager.t("hotkey"), I18nManager.t("msg_bind_key"))
+        self.ui.settings_tab.hk_btn.setText(I18nManager.t("msg_listening"))
         self.ui.settings_tab.hk_btn.setEnabled(False)
         self.hotkey_manager.start_binding()
 
     def _on_hotkey_bound(self, key_str):
-        self.ui.settings_tab.hk_label.setText(f"Hotkey: {key_str}")
-        self.ui.settings_tab.hk_btn.setText("Change")
+        self.ui.settings_tab.hk_label.setText(f"{I18nManager.t('hotkey')}: {key_str}")
+        self.ui.settings_tab.hk_btn.setText(I18nManager.t("change"))
         self.ui.settings_tab.hk_btn.setEnabled(True)
         self._sync_play_button()
 
     def _sync_play_button(self):
-        """Single authoritative update for the play button, derived from current playback state."""
+        """Single authoritative update for the play button."""
         key_str = self.hotkey_manager._format_key_string(self.hotkey_manager.current_key)
+        t = I18nManager.t
         if self.ui._is_collapsed:
             if self.playback_controller.is_paused():
                 self.ui.play_button.setText("\uE768")
-                self.ui.play_button.setToolTip(f"Resume ({key_str})")
+                self.ui.play_button.setToolTip(f"{t('resume')} ({key_str})")
             elif self.playback_controller.is_playing():
                 self.ui.play_button.setText("\uE769")
-                self.ui.play_button.setToolTip(f"Pause ({key_str})")
+                self.ui.play_button.setToolTip(f"{t('pause')} ({key_str})")
             else:
                 self.ui.play_button.setText("\uE768")
-                self.ui.play_button.setToolTip(f"Play ({key_str})")
+                self.ui.play_button.setToolTip(f"{t('play')} ({key_str})")
         else:
             if self.playback_controller.is_paused():
-                self.ui.play_button.setText(f"Resume ({key_str})")
+                self.ui.play_button.setText(f"{t('resume')} ({key_str})")
             elif self.playback_controller.is_playing():
-                self.ui.play_button.setText(f"Pause ({key_str})")
+                self.ui.play_button.setText(f"{t('pause')} ({key_str})")
             else:
-                self.ui.play_button.setText(f"Play ({key_str})")
-            self.ui.play_button.setToolTip("Start, pause, or resume playback")
+                self.ui.play_button.setText(f"{t('play')} ({key_str})")
+            self.ui.play_button.setToolTip(t("tt_play"))
 
     def toggle_playback_state(self):
         if not self.playback_controller.is_paused():
@@ -191,9 +213,9 @@ class MainWindow(QMainWindow):
         self.ui.stop_button.setEnabled(True)
 
     def _on_timeline_seek(self, time):
-        self.ui.log_output.append(f"Seeking to {time:.2f}s...")
+        self.ui.log_output.append(f"{I18nManager.t('status_seeking')} {time:.2f}s...")
         self.playback_controller.seek(time)
-    
+
     def _on_visual_scrub(self, time):
         active_pitches = set()
         lo = bisect.bisect_left(self._note_start_times, time - self._max_note_duration)
@@ -224,16 +246,16 @@ class MainWindow(QMainWindow):
     # --- Loading & File State Dialogs ---
     def select_file(self):
         if self.playback_controller.is_playing() or self.playback_controller.is_paused(): return
-        filepath, _ = QFileDialog.getOpenFileName(self, "Select MIDI File", "", "MIDI Files (*.mid *.midi)")
+        filepath, _ = QFileDialog.getOpenFileName(self, I18nManager.t("browse"), "", "MIDI Files (*.mid *.midi)")
         if filepath:
             self.loaded_save_data = None
             self.loaded_save_filename = None
             self.ui.playback_tab.playback_group.setEnabled(True)
             self.ui.playback_tab.humanization_group.setEnabled(True)
             self.ui.update_file_label(os.path.basename(filepath), filepath)
-            self.ui.log_output.append(f"Selected file: {filepath}")
+            self.ui.log_output.append(f"{I18nManager.t('status_selected_file')}: {filepath}")
             self._parse_and_select_tracks(filepath)
-            
+
     def open_load_dialog(self):
         dialog = LoadSaveDialog(self.config_manager.save_dir, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -241,33 +263,33 @@ class MainWindow(QMainWindow):
             if selected_file and data:
                 self.loaded_save_data = data
                 self.loaded_save_filename = os.path.basename(selected_file)
-                
+
                 self.ui.update_file_label(self.loaded_save_filename, selected_file)
                 self.ui.playback_tab.playback_group.setEnabled(False)
                 self.ui.playback_tab.humanization_group.setEnabled(False)
                 self.ui._set_save_enabled(False)
                 self.ui.play_button.setEnabled(True)
                 self.ui.scrubber_slider.setEnabled(True)
-                self.ui.log_output.append(f"Loaded save file: {self.loaded_save_filename}")
+                self.ui.log_output.append(f"{I18nManager.t('status_loaded_save')}: {self.loaded_save_filename}")
 
     def _parse_and_select_tracks(self, filepath):
-        self.ui.log_output.append("Parsing MIDI structure...")
+        self.ui.log_output.append(I18nManager.t("status_parsing"))
         try:
             tracks, tempo_map = MidiParser.parse_structure(filepath, 1.0, None)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to parse MIDI:\n{e}")
+            QMessageBox.critical(self, I18nManager.t("msg_save_error"), f"{I18nManager.t('msg_parse_error')}:\n{e}")
             return
-            
+
         dialog = TrackSelectionDialog(tracks, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.selected_tracks_info = dialog.get_selection()
             self.parsed_tempo_map = tempo_map 
-            self.ui.log_output.append(f"Tracks selected: {len(self.selected_tracks_info)}")
+            self.ui.log_output.append(f"{I18nManager.t('status_selected_tracks')} {len(self.selected_tracks_info)}")
             self.ui.play_button.setEnabled(True)
             self.ui.scrubber_slider.setEnabled(True)
             self.ui._set_save_enabled(True)
         else:
-            self.ui.log_output.append("Track selection cancelled.")
+            self.ui.log_output.append(I18nManager.t("status_cancelled"))
             self.selected_tracks_info = None
             self.ui.play_button.setEnabled(False)
             self.ui.scrubber_slider.setEnabled(False)
@@ -280,7 +302,7 @@ class MainWindow(QMainWindow):
 
         fmt = FormatRegistry.get(format_name)
         if not fmt:
-            QMessageBox.critical(self, "Unknown Format", f"No handler found for format: {format_name}")
+            QMessageBox.critical(self, I18nManager.t("msg_unknown_format"), f"{I18nManager.t('msg_unknown_format')}: {format_name}")
             return
 
         use_88 = self.ui.playback_tab.use_88_key_check.isChecked()
@@ -290,11 +312,11 @@ class MainWindow(QMainWindow):
         try:
             notes = fmt.parse(text, float(bpm), key_mapper)
         except Exception as e:
-            QMessageBox.critical(self, "Parse Error", f"Failed to parse sheet:\n{e}")
+            QMessageBox.critical(self, I18nManager.t("msg_parse_error"), f"{I18nManager.t('msg_parse_error')}:\n{e}")
             return
 
         if not notes:
-            QMessageBox.warning(self, "No Notes", "No playable notes were found in the pasted sheet.")
+            QMessageBox.warning(self, I18nManager.t("msg_no_notes"), I18nManager.t("msg_no_notes"))
             return
 
         tempo_us = int(60_000_000 / bpm)
@@ -314,7 +336,7 @@ class MainWindow(QMainWindow):
                 'invert_tempo_sway': False, 'use_ai_pedal': False,
             }
 
-        self.ui.log_output.append(f"Importing sheet: {len(notes)} notes at {bpm} BPM ({format_name})")
+        self.ui.log_output.append(f"{I18nManager.t('status_importing')}: {len(notes)} notes at {bpm} BPM ({format_name})")
         self.playback_controller.play_from_notes(config, notes, tempo_map)
         self.ui.set_controls_enabled(False)
         self.ui.play_button.setEnabled(True)
@@ -322,17 +344,16 @@ class MainWindow(QMainWindow):
         self.ui.scrubber_slider.setEnabled(True)
         self._sync_play_button()
         if self.ui._nav_btns[1].isEnabled():
-            self.ui.tabs.setCurrentIndex(1)  # Switch to Visualizer
+            self.ui.tabs.setCurrentIndex(1)
 
     def _on_export_sheet(self, format_name: str):
         if not self.current_notes:
-            QMessageBox.warning(self, "No MIDI Loaded",
-                                "Load and prepare a MIDI file on the Playback tab first.")
+            QMessageBox.warning(self, I18nManager.t("msg_no_notes"), I18nManager.t("msg_no_midi"))
             return
 
         fmt = FormatRegistry.get(format_name)
         if not fmt:
-            QMessageBox.critical(self, "Unknown Format", f"No handler found for format: {format_name}")
+            QMessageBox.critical(self, I18nManager.t("msg_unknown_format"), f"{I18nManager.t('msg_unknown_format')}: {format_name}")
             return
 
         use_88 = self.ui.playback_tab.use_88_key_check.isChecked()
@@ -340,49 +361,49 @@ class MainWindow(QMainWindow):
         key_mapper = KeyMapper(use_88_key_layout=use_88, instrument=instrument)
 
         try:
-            text = fmt.serialize(self.current_notes, key_mapper, tempo_map)
+            text = fmt.serialize(self.current_notes, key_mapper, self.parsed_tempo_map)
         except Exception as e:
-            QMessageBox.critical(self, "Export Error", f"Failed to generate sheet:\n{e}")
+            QMessageBox.critical(self, I18nManager.t("msg_export_error"), f"{I18nManager.t('msg_export_error')}:\n{e}")
             return
 
         self.ui.translator_tab.set_export_text(text)
-        self.ui.log_output.append(f"Sheet exported: {format_name} ({len(text.splitlines())} lines)")
+        self.ui.log_output.append(f"{I18nManager.t('status_exported')}: {format_name} ({len(text.splitlines())} lines)")
 
     def show_error_dialog(self, error_message: str):
-        self.ui.log_output.append("ERROR: Playback thread terminated unexpectedly due to an execution failure.")
-        QMessageBox.critical(self, "Hardware/Execution Failure", error_message)
+        self.ui.log_output.append(I18nManager.t("msg_error_playback"))
+        QMessageBox.critical(self, I18nManager.t("msg_hardware_error"), error_message)
 
     # --- Core Executions ---
     def handle_save(self):
         config = self.ui.gather_playback_config()
         if not self.selected_tracks_info:
-            QMessageBox.warning(self, "No Tracks", "Please select a MIDI file and choose tracks first.")
+            QMessageBox.warning(self, I18nManager.t("msg_no_notes"), I18nManager.t("msg_no_tracks"))
             return
-            
+
         self._save_config()
         original_filename = os.path.basename(self.ui.playback_tab.file_path_label.toolTip())
         self.playback_controller.save(config, self.selected_tracks_info, self.config_manager.save_dir, original_filename)
 
     def _on_save_successful(self, filepath: str, message: str):
-        QMessageBox.information(self, "Save Successful", f"{message}\n{filepath}")
+        QMessageBox.information(self, I18nManager.t("msg_save_success"), f"{message}\n{filepath}")
 
     def _on_save_failed(self, error_message: str):
-        QMessageBox.critical(self, "Save Error", error_message)
+        QMessageBox.critical(self, I18nManager.t("msg_save_error"), error_message)
 
     def handle_play(self):
         if self.playback_controller.is_playing() or self.playback_controller.is_paused(): 
             self.toggle_playback_state()
             return
-            
+
         if self.loaded_save_data:
             self.playback_controller.play_from_save(self.loaded_save_data)
         else:
             config = self.ui.gather_playback_config()
             if not self.selected_tracks_info:
-                QMessageBox.warning(self, "No Tracks", "Please select a MIDI file and choose tracks first.")
+                QMessageBox.warning(self, I18nManager.t("msg_no_notes"), I18nManager.t("msg_no_tracks"))
                 return
             self.playback_controller.play(config, self.selected_tracks_info)
-            
+
         self.ui.set_controls_enabled(False, bool(self.loaded_save_data))
         self.ui.play_button.setEnabled(True)
         self.ui.stop_button.setEnabled(True)
@@ -394,7 +415,7 @@ class MainWindow(QMainWindow):
         self.playback_controller.stop()
 
     def on_playback_finished(self):
-        self.ui.log_output.append("Playback process finished.\n" + "="*50 + "\n")
+        self.ui.log_output.append(I18nManager.t("status_playback_finished") + "\n" + "="*50 + "\n")
         self.ui.set_controls_enabled(True, bool(self.loaded_save_data))
         self.ui.stop_button.setEnabled(False)
         self._sync_play_button()
@@ -404,7 +425,7 @@ class MainWindow(QMainWindow):
     def _manual_check_update(self):
         btn = self.ui.settings_tab.check_update_btn
         btn.setEnabled(False)
-        btn.setText("Checking...")
+        btn.setText(I18nManager.t("msg_listening"))
         self._manual_checker = UpdateChecker(APP_VERSION, force=True)
         self._manual_checker.update_available.connect(self._on_update_available)
         self._manual_checker.update_available.connect(lambda *_: self._reset_update_btn())
@@ -415,16 +436,16 @@ class MainWindow(QMainWindow):
     def _reset_update_btn(self):
         btn = self.ui.settings_tab.check_update_btn
         btn.setEnabled(True)
-        btn.setText("Check for updates")
+        btn.setText(I18nManager.t("check_updates"))
 
     def _on_no_update(self):
         self._reset_update_btn()
-        QMessageBox.information(self, "Up to Date",
+        QMessageBox.information(self, I18nManager.t("msg_up_to_date"),
             f"Teto Midi v{APP_VERSION} is the latest version.")
 
     def _on_check_failed(self):
         self._reset_update_btn()
-        QMessageBox.warning(self, "Update Check Failed",
+        QMessageBox.warning(self, I18nManager.t("msg_update_failed"),
             "Could not reach GitHub.\nPlease check your internet connection.")
 
     def _on_update_available(self, latest_tag: str, releases_url: str):
