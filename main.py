@@ -22,7 +22,7 @@ APP_VERSION = "2.0"
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(f"HuMidi v{APP_VERSION}")
+        self.setWindowTitle(f"Teto Midi v{APP_VERSION}")
         self.setMinimumWidth(820)
         self.setMinimumHeight(485)
         self.resize(self.minimumWidth(), self.minimumHeight())
