@@ -30,7 +30,10 @@ class Player(QObject):
         self.sections = sections
         self.tempo_map = tempo_map
         self.keyboard = Controller()
-        self.mapper = KeyMapper(use_88_key_layout=self.config.get('use_88_key_layout', False))
+        self.mapper = KeyMapper(
+            use_88_key_layout=self.config.get('use_88_key_layout', False),
+            instrument=self.config.get('instrument', 'piano'),
+        )
         
         self.compiled_events: List[KeyEvent] = []
         self.event_index = 0
