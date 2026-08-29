@@ -21,13 +21,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
+          pip install pyinstaller pillow
 
       - name: Build Windows executable
         run: |
           pyinstaller --noconfirm --onefile --windowed `
             --name TetoMidi `
             --icon icon.ico `
+            --add-data "icon.ico;." `
             main.py
 
       - name: Upload Windows artifact
@@ -66,6 +67,7 @@ jobs:
         run: |
           pyinstaller --noconfirm --onefile \
             --name TetoMidi \
+            --add-data "icon.ico:." \
             main.py
 
       - name: Upload Linux artifact
