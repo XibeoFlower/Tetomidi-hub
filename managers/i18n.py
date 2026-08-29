@@ -4,7 +4,7 @@ Supports English (default) and Vietnamese (Tiếng Việt) with full diacritics.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict
 import json
 from pathlib import Path
 
@@ -18,6 +18,7 @@ class TranslationStrings:
     nav_translator: str = "Translator"
     nav_settings: str = "Settings"
     nav_debug: str = "Debug"
+    nav_guitar: str = "Guitar"
 
     # Playback Tab
     midi_file: str = "MIDI File"
@@ -161,6 +162,7 @@ VIETNAMESE = TranslationStrings(
     nav_translator="Dịch Bản Nhạc",
     nav_settings="Cài Đặt",
     nav_debug="Gỡ Lỗi",
+    nav_guitar="Guitar",
 
     midi_file="Tập Tin MIDI",
     no_file_selected="Chưa chọn tập tin.",
