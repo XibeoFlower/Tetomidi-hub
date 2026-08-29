@@ -181,18 +181,32 @@ class KeyMapper:
     PITCH_START_LEFT = 21 
     PITCH_START_MIDDLE = 36 
     PITCH_START_RIGHT = 97 
-    
-    def __init__(self, use_88_key_layout: bool = False):
+
+    # Per-instrument config: pitch range for each use_88_key_layout state, and
+    # whether the Ctrl-modified left/right extension keys are used at all.
+    # Roblox instrument games generally reuse the same underlying QWERTY grid
+    # (this is a shared "virtual keyboard" convention across piano/guitar/etc.
+    # games) — only the *playable pitch range* differs per instrument, since
+    # that's what determines which notes need octave-wrapping into range.
+    INSTRUMENT_PRESETS = {
+        'piano':  {'use_ctrl_extension': True,  'ranges': {False: (36, 96), True: (21, 108)}},
+        # Standard guitar range ~E2–E6 (MIDI 40–88). Comfortably fits within
+        # the middle QWERTY grid without needing the Ctrl-extended keys, since
+        # most Roblox guitar games only expose that base grid.
+        'guitar': {'use_ctrl_extension': False, 'ranges': {False: (40, 88), True: (40, 88)}},
+    }
+
+    def __init__(self, use_88_key_layout: bool = False, instrument: str = 'piano'):
         self.use_88_key_layout = use_88_key_layout
+        self.instrument = instrument if instrument in self.INSTRUMENT_PRESETS else 'piano'
+        preset = self.INSTRUMENT_PRESETS[self.instrument]
+        self.min_pitch, self.max_pitch = preset['ranges'][use_88_key_layout]
+        self._use_ctrl_extension = preset['use_ctrl_extension'] and use_88_key_layout
         self.key_map = {}
-        if self.use_88_key_layout:
-            self.min_pitch = 21; self.max_pitch = 108 
-        else:
-            self.min_pitch = 36; self.max_pitch = 96  
         self.init_key_map()
 
     def init_key_map(self):
-        if self.use_88_key_layout:
+        if self._use_ctrl_extension:
             current_pitch = self.PITCH_START_LEFT
             for char in self.LEFT_CTRL_KEYS:
                 self.key_map[current_pitch] = {'key': char, 'modifiers': [Key.ctrl]}
@@ -237,4 +251,3 @@ class KeyMapper:
     def pitch_to_name(pitch: int) -> str:
         names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
         return f"{names[pitch % 12]}{(pitch // 12) - 1}"
-    
