@@ -284,7 +284,8 @@ class MainWindow(QMainWindow):
             return
 
         use_88 = self.ui.playback_tab.use_88_key_check.isChecked()
-        key_mapper = KeyMapper(use_88_key_layout=use_88)
+        instrument = self.ui.playback_tab.instrument_combo.currentText().lower()
+        key_mapper = KeyMapper(use_88_key_layout=use_88, instrument=instrument)
 
         try:
             notes = fmt.parse(text, float(bpm), key_mapper)
@@ -303,7 +304,7 @@ class MainWindow(QMainWindow):
             config = self.ui.gather_playback_config()
         else:
             config = {
-                'use_88_key_layout': use_88, 'debug_mode': False, 'countdown': False,
+                'use_88_key_layout': use_88, 'instrument': instrument, 'debug_mode': False, 'countdown': False,
                 'pedal_style': 'none', 'simulate_hands': False, 'vary_velocity': False,
                 'enable_chord_roll': False, 'vary_timing': False, 'timing_variance': 0.01,
                 'vary_articulation': False, 'articulation': 0.95,
@@ -335,8 +336,8 @@ class MainWindow(QMainWindow):
             return
 
         use_88 = self.ui.playback_tab.use_88_key_check.isChecked()
-        key_mapper = KeyMapper(use_88_key_layout=use_88)
-        tempo_map = getattr(self, 'parsed_tempo_map', TempoMap([(0, 500000)], []))
+        instrument = self.ui.playback_tab.instrument_combo.currentText().lower()
+        key_mapper = KeyMapper(use_88_key_layout=use_88, instrument=instrument)
 
         try:
             text = fmt.serialize(self.current_notes, key_mapper, tempo_map)
