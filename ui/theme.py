@@ -814,7 +814,7 @@ class ThemeManager:
 
     @classmethod
     def get_active_name(cls) -> str:
-        return cls._load_raw().get("active", "Teto Red")
+        return cls._load_raw().get("active", "Sakura")
 
     @classmethod
     def set_active_name(cls, name: str) -> None:
