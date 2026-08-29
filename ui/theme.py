@@ -1,12 +1,12 @@
 """
-HuMidi theme engine.
+TetoMidi theme engine.
 
 A ThemeColors holds the 9 user-visible colour slots.  Everything else
 (button backgrounds, disabled states, derived hover tints …) is computed
 automatically by generate_stylesheet().
 
 ThemeManager persists custom themes and the active-theme name to
-  ~/.humidi/themes.json
+  ~/.tetomidi/themes.json
 """
 
 from __future__ import annotations
@@ -93,6 +93,38 @@ BUILTIN_THEMES: dict[str, ThemeColors] = {
         accent="#e6a050", text_primary="#ece0d0", text_secondary="#907060",
         border="#3c3028", accent_play="#7ab860", accent_stop="#e05060",
         pedal_color="#c8901a",
+        builtin=True,
+    ),
+    "Teto Red": ThemeColors(
+        name="Teto Red",
+        bg_primary="#1a0f12", bg_secondary="#251317", bg_input="#2c161b",
+        accent="#e0263f", text_primary="#f5e0e2", text_secondary="#a06570",
+        border="#3d1e24", accent_play="#4ecb8d", accent_stop="#ff4d6d",
+        pedal_color="#f0a020",
+        builtin=True,
+    ),
+    "Sakura": ThemeColors(
+        name="Sakura",
+        bg_primary="#fff5f7", bg_secondary="#ffffff", bg_input="#fff0f3",
+        accent="#ff6f91", text_primary="#3a1f26", text_secondary="#a97b88",
+        border="#f5c6d0", accent_play="#4fae7a", accent_stop="#e0455f",
+        pedal_color="#d99a2b",
+        builtin=True,
+    ),
+    "Emerald": ThemeColors(
+        name="Emerald",
+        bg_primary="#0e1712", bg_secondary="#152019", bg_input="#1a271f",
+        accent="#2ecc8f", text_primary="#dff5ea", text_secondary="#7fa693",
+        border="#243a30", accent_play="#54d98c", accent_stop="#e05c5c",
+        pedal_color="#e8b020",
+        builtin=True,
+    ),
+    "Royal Purple": ThemeColors(
+        name="Royal Purple",
+        bg_primary="#160e22", bg_secondary="#1e1430", bg_input="#241a38",
+        accent="#9b6bff", text_primary="#ece5f8", text_secondary="#8b7aa8",
+        border="#33254a", accent_play="#4ecb8d", accent_stop="#ff5c8a",
+        pedal_color="#e8a020",
         builtin=True,
     ),
 }
@@ -745,8 +777,8 @@ def generate_stylesheet(c: ThemeColors) -> str:
 class ThemeManager:
     """Loads/saves custom themes and the active theme name from disk."""
 
-    _themes_dir = Path.home() / ".humidi"
-    _themes_file = Path.home() / ".humidi" / "themes.json"
+    _themes_dir = Path.home() / ".tetomidi"
+    _themes_file = Path.home() / ".tetomidi" / "themes.json"
 
     # ── Disk I/O ──────────────────────────────────────────────────────
 
@@ -782,7 +814,7 @@ class ThemeManager:
 
     @classmethod
     def get_active_name(cls) -> str:
-        return cls._load_raw().get("active", "Midnight")
+        return cls._load_raw().get("active", "Teto Red")
 
     @classmethod
     def set_active_name(cls, name: str) -> None:
