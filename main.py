@@ -419,7 +419,7 @@ class MainWindow(QMainWindow):
     def _on_no_update(self):
         self._reset_update_btn()
         QMessageBox.information(self, "Up to Date",
-            f"HuMidi v{APP_VERSION} is the latest version.")
+            f"Teto Midi v{APP_VERSION} is the latest version.")
 
     def _on_check_failed(self):
         self._reset_update_btn()
