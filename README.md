@@ -1,23 +1,5 @@
 # Teto Midi hub
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 577 553" width="577" height="553">
-  <rect width="100%" height="100%" fill="#000000"/>
-  <text x="288.5" y="240" 
-        font-family="Arial, Helvetica, sans-serif" 
-        font-size="110" 
-        font-weight="400" 
-        fill="#FFFFFF" 
-        text-anchor="middle" 
-        dominant-baseline="middle"
-        letter-spacing="-2">teto</text>
-  <text x="288.5" y="340" 
-        font-family="Arial, Helvetica, sans-serif" 
-        font-size="120" 
-        font-weight="700" 
-        fill="#FFFFFF" 
-        text-anchor="middle" 
-        dominant-baseline="middle"
-        letter-spacing="2">MIDI</text>
-</svg>
+
 **Teto Midi** is a MIDI playback and auto-play tool with a Kasane Teto–themed interface. It loads MIDI files (or pasted sheet-music text), can play them back with a live piano-roll visualizer, and can **auto-play the track through simulated key presses** into virtual piano games — such as the piano games found on Roblox — with optional humanization so the input feels less robotic.
 
 This README covers every tab and setting in the app, plus full install/build instructions for Windows and Linux.
