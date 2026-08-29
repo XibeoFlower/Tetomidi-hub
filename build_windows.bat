@@ -36,6 +36,7 @@ pyinstaller --noconfirm --onefile --windowed ^
     --name TetoMidi ^
     --icon icon.ico ^
     --add-data "icon.ico;." ^
+    --add-data "discord_avatar.png;." ^
     main.py
 
 if errorlevel 1 (
