@@ -1,4 +1,4 @@
-# Teto Midi v2.0
+# Teto Midi v3.0
 
 **Teto Midi** is a MIDI playback and auto-play tool built around a Kasane Teto–themed interface. It can load and play MIDI files, translate sheet-music text into playable input, and visualize notes in real time on a piano roll — with optional **humanized playback**, making it well suited for auto-playing virtual piano games such as those found on **Roblox**.
 
@@ -6,7 +6,7 @@
 
 ## ✨ Features
 
-![Teto Midi — Playback tab](assets/screenshots/playback.jpeg)
+![Teto Midi — Playback tab](https://raw.githubusercontent.com/XibeoFlower/Tetomidi-hub/main/assets/screenshots/playback.jpeg)
 
 ### 🎹 Playback
 - **Load MIDI files** via `Browse…`, or restore a previous session with `Load Save`
@@ -21,7 +21,7 @@
 
 ### 🎵 Visualizer
 
-![Teto Midi — Visualizer tab](assets/screenshots/visualizer.jpeg)
+![Teto Midi — Visualizer tab](https://raw.githubusercontent.com/XibeoFlower/Tetomidi-hub/main/assets/screenshots/visualizer.jpeg)
 
 - Real-time **falling-note piano roll**
 - Interactive **virtual keyboard** that highlights keys as they're played
@@ -30,7 +30,7 @@
 
 ### 🔀 Translator
 
-![Teto Midi — Translator tab](assets/screenshots/translator.jpeg)
+![Teto Midi — Translator tab](https://raw.githubusercontent.com/XibeoFlower/Tetomidi-hub/main/assets/screenshots/translator.jpeg)
 
 - Convert between sheet-music formats — currently supports **Virtual Piano** notation
 - **Import** tab: paste raw sheet text directly into the app
