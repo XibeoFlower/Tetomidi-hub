@@ -4,8 +4,8 @@ import urllib.request
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
-RELEASES_API = "https://api.github.com/repos/smyGitt/HuMidi-Roblox-Piano-Autoplayer/releases/latest"
-RELEASES_PAGE = "https://github.com/smyGitt/HuMidi-Roblox-Piano-Autoplayer/releases/latest"
+RELEASES_API = "https://api.github.com/repos/XibeoFlower/Tetomidi-hub/releases/latest"
+RELEASES_PAGE = "https://github.com/XibeoFlower/Tetomidi-hub/releases/latest"
 
 
 def parse_version(tag: str) -> tuple:
@@ -30,7 +30,7 @@ class UpdateChecker(QThread):
             return
         try:
             req = urllib.request.Request(
-                RELEASES_API, headers={"User-Agent": "HuMidi-updater"}
+                RELEASES_API, headers={"User-Agent": "TetoMidi-updater"}
             )
             with urllib.request.urlopen(req, timeout=8) as resp:
                 data = json.loads(resp.read().decode())
