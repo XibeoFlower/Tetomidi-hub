@@ -24,7 +24,7 @@ call venv\Scripts\activate.bat
 echo Dang cai dependencies...
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-pip install pyinstaller
+pip install pyinstaller pillow
 
 echo Dang don dep build cu...
 rmdir /s /q build 2>nul
@@ -35,6 +35,7 @@ echo Dang build file .exe...
 pyinstaller --noconfirm --onefile --windowed ^
     --name TetoMidi ^
     --icon icon.ico ^
+    --add-data "icon.ico;." ^
     main.py
 
 if errorlevel 1 (
