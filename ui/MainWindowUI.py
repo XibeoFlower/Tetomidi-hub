@@ -1,8 +1,10 @@
+import sys
+import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QCheckBox, QSlider, QLabel, QStackedWidget, QFrame,
                              QSizePolicy)
-from PyQt6.QtCore import Qt, QObject, QSize
-from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
+from PyQt6.QtCore import Qt, QObject, QSize, QTimer
+from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap, QGuiApplication, QCursor
 
 from ui.widgets import NavButton
 from ui.PlaybackTab import PlaybackTab
@@ -11,6 +13,18 @@ from ui.TranslatorTab import TranslatorTab
 from ui.VisualizerTab import VisualizerTab
 from ui.DebugTab import DebugTab
 from ui.theme import ThemeManager, generate_stylesheet
+
+
+def _resource_path(*relative_parts: str) -> str:
+    """Resolve a bundled asset path that works both when running from source
+    and when frozen into a PyInstaller onefile build (see main.py's icon.ico
+    handling for the same pattern)."""
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        # ui/MainWindowUI.py -> project root is one level up
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, *relative_parts)
 
 
 def _make_mdl2_icon(glyph: str, color: QColor, pixel_size: int = 14) -> QIcon:
@@ -167,6 +181,29 @@ class MainWindowUI(QObject):
             self._nav_btns.append(btn)
 
         sidebar_vbox.addStretch()
+
+        # ── Discord contact footer (bottom-left corner) ─────────────────
+        self.discord_btn = QPushButton("  @xiunolove")
+        self.discord_btn.setObjectName("discord_footer_btn")
+        self.discord_btn.setFlat(True)
+        self.discord_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.discord_btn.setToolTip("Discord: @xiunolove — click to copy")
+        avatar_path = _resource_path("discord_avatar.png")
+        if os.path.exists(avatar_path):
+            self.discord_btn.setIcon(QIcon(avatar_path))
+        else:
+            self.discord_btn.setIcon(_make_mdl2_icon("\uE8F2", QColor("#5865F2"), 16))
+        self.discord_btn.setIconSize(QSize(20, 20))
+        self.discord_btn.setStyleSheet(
+            "QPushButton#discord_footer_btn {"
+            "  text-align: left; padding: 8px 12px; border: none;"
+            "  color: #5865F2; font-size: 11px; font-weight: 600;"
+            "}"
+            "QPushButton#discord_footer_btn:hover { color: #7289FF; }"
+        )
+        self.discord_btn.clicked.connect(self._copy_discord_tag)
+        sidebar_vbox.addWidget(self.discord_btn)
+
         body_layout.addWidget(sidebar)
         body_layout.addWidget(self.tabs, 1)
         main_layout.addWidget(self._body, 1)
@@ -277,6 +314,14 @@ class MainWindowUI(QObject):
     def _on_page_changed(self, index: int) -> None:
         for i, btn in enumerate(self._nav_btns):
             btn.set_active(i == index)
+
+    # ── Discord footer ────────────────────────────────────────────────
+
+    def _copy_discord_tag(self) -> None:
+        QGuiApplication.clipboard().setText("@xiunolove")
+        original_text = "  @xiunolove"
+        self.discord_btn.setText("  Copied!")
+        QTimer.singleShot(1500, lambda: self.discord_btn.setText(original_text))
 
     # ── Theme ──────────────────────────────────────────────────────────
 
