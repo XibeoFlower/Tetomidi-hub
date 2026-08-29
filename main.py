@@ -18,7 +18,7 @@ from ui.MainWindowUI import MainWindowUI
 from ui.TrackSelectionDialog import TrackSelectionDialog
 from ui.LoadSaveDialog import LoadSaveDialog
 
-APP_VERSION = "3.2"
+APP_VERSION = "3.3"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -56,6 +56,10 @@ class MainWindow(QMainWindow):
         self._max_note_duration = 0.0
         self.current_pedal_intervals = []
 
+        # Guitar mode state
+        self._guitar_file_loaded = False
+        self._guitar_selected_tracks = None
+
         self._bind_signals()
 
         # Load initialization data
@@ -77,8 +81,18 @@ class MainWindow(QMainWindow):
         self.ui.stop_button.clicked.connect(self.handle_stop)
         self.ui.save_button.clicked.connect(self.handle_save)
         self.ui.reset_button.clicked.connect(self.ui.reset_controls_to_default)
+
+        # Playback tab
         self.ui.playback_tab.browse_button.clicked.connect(self.select_file)
         self.ui.playback_tab.load_saved_btn.clicked.connect(self.open_load_dialog)
+
+        # Guitar tab (NEW)
+        self.ui.guitar_tab.browse_button.clicked.connect(self.select_file_guitar)
+        self.ui.guitar_tab.load_saved_btn.clicked.connect(self.open_load_dialog)
+        self.ui.guitar_tab.play_button.clicked.connect(self.handle_guitar_play)
+        self.ui.guitar_tab.stop_button.clicked.connect(self.handle_stop)
+
+        # Settings
         self.ui.settings_tab.save_browse_btn.clicked.connect(self._browse_save_dir)
         self.ui._collapsed_load_btn.clicked.connect(self.select_file)
         self.ui._collapsed_load_saved_btn.clicked.connect(self.open_load_dialog)
@@ -126,6 +140,91 @@ class MainWindow(QMainWindow):
         self.playback_controller.save_successful.connect(self._on_save_successful)
         self.playback_controller.save_failed.connect(self._on_save_failed)
 
+        # Guitar visualizer bridge (NEW)
+        self.playback_controller.visualizer_updated.connect(self._on_guitar_notes_update)
+
+    # --- Guitar Mode (NEW) ---
+    def _on_guitar_notes_update(self, pitches: list):
+        """Forward active pitches to guitar fretboard visualizer."""
+        notes = [(p, 100) for p in pitches]
+        self.ui.guitar_tab.fretboard.set_active_notes(notes)
+        # Update chord label with pitch count
+        if pitches:
+            self.ui.guitar_tab.note_info_label.setText(
+                f"{len(pitches)} note(s) active"
+            )
+        else:
+            self.ui.guitar_tab.note_info_label.setText("—")
+
+    def select_file_guitar(self):
+        """File selection specifically for Guitar mode."""
+        if self.playback_controller.is_playing() or self.playback_controller.is_paused():
+            return
+        filepath, _ = QFileDialog.getOpenFileName(
+            self, I18nManager.t("browse"), "", "MIDI Files (*.mid *.midi)"
+        )
+        if filepath:
+            self.loaded_save_data = None
+            self.loaded_save_filename = None
+            self.ui.guitar_tab.update_file_label(os.path.basename(filepath), filepath)
+            self.ui.log_output.append(f"{I18nManager.t('status_selected_file')}: {filepath}")
+            self._parse_and_select_tracks_guitar(filepath)
+
+    def _parse_and_select_tracks_guitar(self, filepath):
+        self.ui.log_output.append(I18nManager.t("status_parsing"))
+        try:
+            tracks, tempo_map = MidiParser.parse_structure(filepath, 1.0, None)
+        except Exception as e:
+            QMessageBox.critical(
+                self, I18nManager.t("msg_save_error"),
+                f"{I18nManager.t('msg_parse_error')}:\n{e}"
+            )
+            return
+
+        dialog = TrackSelectionDialog(tracks, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._guitar_selected_tracks = dialog.get_selection()
+            self.parsed_tempo_map = tempo_map
+            self.ui.log_output.append(
+                f"{I18nManager.t('status_selected_tracks')} {len(self._guitar_selected_tracks)}"
+            )
+            self.ui.guitar_tab.play_button.setEnabled(True)
+            self._guitar_file_loaded = True
+        else:
+            self.ui.log_output.append(I18nManager.t("status_cancelled"))
+            self._guitar_selected_tracks = None
+            self.ui.guitar_tab.play_button.setEnabled(False)
+            self._guitar_file_loaded = False
+
+    def handle_guitar_play(self):
+        """Start playback in Guitar mode."""
+        if self.playback_controller.is_playing() or self.playback_controller.is_paused():
+            self.toggle_playback_state()
+            return
+
+        if not self._guitar_file_loaded or not self._guitar_selected_tracks:
+            QMessageBox.warning(
+                self, I18nManager.t("msg_no_notes"),
+                I18nManager.t("msg_no_tracks")
+            )
+            return
+
+        # Build guitar config
+        guitar_cfg = self.ui.guitar_tab.gather_guitar_config()
+
+        # Merge with playback config but force guitar instrument
+        config = self.ui.gather_playback_config()
+        config.update(guitar_cfg)
+        config['instrument'] = 'guitar'
+        config['use_88_key_layout'] = False
+
+        self.playback_controller.play(config, self._guitar_selected_tracks)
+
+        self.ui.guitar_tab.set_controls_enabled(False)
+        self.ui.guitar_tab.play_button.setEnabled(True)
+        self.ui.guitar_tab.stop_button.setEnabled(True)
+        self._sync_play_button()
+
     # --- Language ---
     def _on_language_changed(self):
         lang = self.ui.settings_tab.lang_combo.currentData()
@@ -153,20 +252,26 @@ class MainWindow(QMainWindow):
         self.config_manager.save(config_data)
 
     def _browse_save_dir(self):
-        path = QFileDialog.getExistingDirectory(self, I18nManager.t("browse"), self.config_manager.save_dir)
+        path = QFileDialog.getExistingDirectory(
+            self, I18nManager.t("browse"), self.config_manager.save_dir
+        )
         if path:
             self.config_manager.set_save_dir(path)
             self.ui.settings_tab.save_path_input.setText(path)
             self._save_config()
 
     def _change_hotkey(self):
-        QMessageBox.information(self, I18nManager.t("hotkey"), I18nManager.t("msg_bind_key"))
+        QMessageBox.information(
+            self, I18nManager.t("hotkey"), I18nManager.t("msg_bind_key")
+        )
         self.ui.settings_tab.hk_btn.setText(I18nManager.t("msg_listening"))
         self.ui.settings_tab.hk_btn.setEnabled(False)
         self.hotkey_manager.start_binding()
 
     def _on_hotkey_bound(self, key_str):
-        self.ui.settings_tab.hk_label.setText(f"{I18nManager.t('hotkey')}: {key_str}")
+        self.ui.settings_tab.hk_label.setText(
+            f"{I18nManager.t('hotkey')}: {key_str}"
+        )
         self.ui.settings_tab.hk_btn.setText(I18nManager.t("change"))
         self.ui.settings_tab.hk_btn.setEnabled(True)
         self._sync_play_button()
@@ -197,6 +302,7 @@ class MainWindow(QMainWindow):
     def toggle_playback_state(self):
         if not self.playback_controller.is_paused():
             self.ui.piano_widget.clear()
+            self.ui.guitar_tab.fretboard.clear()
 
         if self.playback_controller.is_playing() or self.playback_controller.is_paused():
             self.playback_controller.toggle_pause()
@@ -210,6 +316,7 @@ class MainWindow(QMainWindow):
     def _on_auto_paused(self):
         self._sync_play_button()
         self.ui.piano_widget.clear()
+        self.ui.guitar_tab.fretboard.clear()
         self.ui.stop_button.setEnabled(True)
 
     def _on_timeline_seek(self, time):
@@ -224,6 +331,7 @@ class MainWindow(QMainWindow):
             if note.end_time > time:
                 active_pitches.add(note.pitch)
         self.ui.piano_widget.set_active_pitches(list(active_pitches))
+        self.ui.guitar_tab.fretboard.set_active_notes([(p, 100) for p in active_pitches])
         pedal_down = any(s <= time < e for s, e in self.current_pedal_intervals)
         self.ui.piano_widget.set_pedal_active(pedal_down)
         self.ui.update_time_label(time, self.total_song_duration_sec)
@@ -245,8 +353,11 @@ class MainWindow(QMainWindow):
 
     # --- Loading & File State Dialogs ---
     def select_file(self):
-        if self.playback_controller.is_playing() or self.playback_controller.is_paused(): return
-        filepath, _ = QFileDialog.getOpenFileName(self, I18nManager.t("browse"), "", "MIDI Files (*.mid *.midi)")
+        if self.playback_controller.is_playing() or self.playback_controller.is_paused():
+            return
+        filepath, _ = QFileDialog.getOpenFileName(
+            self, I18nManager.t("browse"), "", "MIDI Files (*.mid *.midi)"
+        )
         if filepath:
             self.loaded_save_data = None
             self.loaded_save_filename = None
@@ -270,21 +381,28 @@ class MainWindow(QMainWindow):
                 self.ui._set_save_enabled(False)
                 self.ui.play_button.setEnabled(True)
                 self.ui.scrubber_slider.setEnabled(True)
-                self.ui.log_output.append(f"{I18nManager.t('status_loaded_save')}: {self.loaded_save_filename}")
+                self.ui.log_output.append(
+                    f"{I18nManager.t('status_loaded_save')}: {self.loaded_save_filename}"
+                )
 
     def _parse_and_select_tracks(self, filepath):
         self.ui.log_output.append(I18nManager.t("status_parsing"))
         try:
             tracks, tempo_map = MidiParser.parse_structure(filepath, 1.0, None)
         except Exception as e:
-            QMessageBox.critical(self, I18nManager.t("msg_save_error"), f"{I18nManager.t('msg_parse_error')}:\n{e}")
+            QMessageBox.critical(
+                self, I18nManager.t("msg_save_error"),
+                f"{I18nManager.t('msg_parse_error')}:\n{e}"
+            )
             return
 
         dialog = TrackSelectionDialog(tracks, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.selected_tracks_info = dialog.get_selection()
             self.parsed_tempo_map = tempo_map 
-            self.ui.log_output.append(f"{I18nManager.t('status_selected_tracks')} {len(self.selected_tracks_info)}")
+            self.ui.log_output.append(
+                f"{I18nManager.t('status_selected_tracks')} {len(self.selected_tracks_info)}"
+            )
             self.ui.play_button.setEnabled(True)
             self.ui.scrubber_slider.setEnabled(True)
             self.ui._set_save_enabled(True)
@@ -302,7 +420,10 @@ class MainWindow(QMainWindow):
 
         fmt = FormatRegistry.get(format_name)
         if not fmt:
-            QMessageBox.critical(self, I18nManager.t("msg_unknown_format"), f"{I18nManager.t('msg_unknown_format')}: {format_name}")
+            QMessageBox.critical(
+                self, I18nManager.t("msg_unknown_format"),
+                f"{I18nManager.t('msg_unknown_format')}: {format_name}"
+            )
             return
 
         use_88 = self.ui.playback_tab.use_88_key_check.isChecked()
@@ -312,7 +433,10 @@ class MainWindow(QMainWindow):
         try:
             notes = fmt.parse(text, float(bpm), key_mapper)
         except Exception as e:
-            QMessageBox.critical(self, I18nManager.t("msg_parse_error"), f"{I18nManager.t('msg_parse_error')}:\n{e}")
+            QMessageBox.critical(
+                self, I18nManager.t("msg_parse_error"),
+                f"{I18nManager.t('msg_parse_error')}:\n{e}"
+            )
             return
 
         if not notes:
@@ -326,17 +450,19 @@ class MainWindow(QMainWindow):
             config = self.ui.gather_playback_config()
         else:
             config = {
-                'use_88_key_layout': use_88, 'instrument': instrument, 'debug_mode': False, 'countdown': False,
-                'pedal_style': 'none', 'simulate_hands': False, 'vary_velocity': False,
-                'enable_chord_roll': False, 'vary_timing': False, 'timing_variance': 0.01,
-                'vary_articulation': False, 'articulation': 0.95,
+                'use_88_key_layout': use_88, 'instrument': instrument, 'debug_mode': False,
+                'countdown': False, 'pedal_style': 'none', 'simulate_hands': False,
+                'vary_velocity': False, 'enable_chord_roll': False, 'vary_timing': False,
+                'timing_variance': 0.01, 'vary_articulation': False, 'articulation': 0.95,
                 'enable_drift_correction': False, 'drift_decay_factor': 0.25,
                 'enable_mistakes': False, 'mistake_chance': 0.0,
                 'enable_tempo_sway': False, 'tempo_sway_intensity': 0.0,
                 'invert_tempo_sway': False, 'use_ai_pedal': False,
             }
 
-        self.ui.log_output.append(f"{I18nManager.t('status_importing')}: {len(notes)} notes at {bpm} BPM ({format_name})")
+        self.ui.log_output.append(
+            f"{I18nManager.t('status_importing')}: {len(notes)} notes at {bpm} BPM ({format_name})"
+        )
         self.playback_controller.play_from_notes(config, notes, tempo_map)
         self.ui.set_controls_enabled(False)
         self.ui.play_button.setEnabled(True)
@@ -353,7 +479,10 @@ class MainWindow(QMainWindow):
 
         fmt = FormatRegistry.get(format_name)
         if not fmt:
-            QMessageBox.critical(self, I18nManager.t("msg_unknown_format"), f"{I18nManager.t('msg_unknown_format')}: {format_name}")
+            QMessageBox.critical(
+                self, I18nManager.t("msg_unknown_format"),
+                f"{I18nManager.t('msg_unknown_format')}: {format_name}"
+            )
             return
 
         use_88 = self.ui.playback_tab.use_88_key_check.isChecked()
@@ -363,11 +492,16 @@ class MainWindow(QMainWindow):
         try:
             text = fmt.serialize(self.current_notes, key_mapper, self.parsed_tempo_map)
         except Exception as e:
-            QMessageBox.critical(self, I18nManager.t("msg_export_error"), f"{I18nManager.t('msg_export_error')}:\n{e}")
+            QMessageBox.critical(
+                self, I18nManager.t("msg_export_error"),
+                f"{I18nManager.t('msg_export_error')}:\n{e}"
+            )
             return
 
         self.ui.translator_tab.set_export_text(text)
-        self.ui.log_output.append(f"{I18nManager.t('status_exported')}: {format_name} ({len(text.splitlines())} lines)")
+        self.ui.log_output.append(
+            f"{I18nManager.t('status_exported')}: {format_name} ({len(text.splitlines())} lines)"
+        )
 
     def show_error_dialog(self, error_message: str):
         self.ui.log_output.append(I18nManager.t("msg_error_playback"))
@@ -377,15 +511,21 @@ class MainWindow(QMainWindow):
     def handle_save(self):
         config = self.ui.gather_playback_config()
         if not self.selected_tracks_info:
-            QMessageBox.warning(self, I18nManager.t("msg_no_notes"), I18nManager.t("msg_no_tracks"))
+            QMessageBox.warning(
+                self, I18nManager.t("msg_no_notes"), I18nManager.t("msg_no_tracks")
+            )
             return
 
         self._save_config()
         original_filename = os.path.basename(self.ui.playback_tab.file_path_label.toolTip())
-        self.playback_controller.save(config, self.selected_tracks_info, self.config_manager.save_dir, original_filename)
+        self.playback_controller.save(
+            config, self.selected_tracks_info, self.config_manager.save_dir, original_filename
+        )
 
     def _on_save_successful(self, filepath: str, message: str):
-        QMessageBox.information(self, I18nManager.t("msg_save_success"), f"{message}\n{filepath}")
+        QMessageBox.information(
+            self, I18nManager.t("msg_save_success"), f"{message}\n{filepath}"
+        )
 
     def _on_save_failed(self, error_message: str):
         QMessageBox.critical(self, I18nManager.t("msg_save_error"), error_message)
@@ -400,7 +540,9 @@ class MainWindow(QMainWindow):
         else:
             config = self.ui.gather_playback_config()
             if not self.selected_tracks_info:
-                QMessageBox.warning(self, I18nManager.t("msg_no_notes"), I18nManager.t("msg_no_tracks"))
+                QMessageBox.warning(
+                    self, I18nManager.t("msg_no_notes"), I18nManager.t("msg_no_tracks")
+                )
                 return
             self.playback_controller.play(config, self.selected_tracks_info)
 
@@ -415,11 +557,16 @@ class MainWindow(QMainWindow):
         self.playback_controller.stop()
 
     def on_playback_finished(self):
-        self.ui.log_output.append(I18nManager.t("status_playback_finished") + "\n" + "="*50 + "\n")
+        self.ui.log_output.append(
+            I18nManager.t("status_playback_finished") + "\n" + "="*50 + "\n"
+        )
         self.ui.set_controls_enabled(True, bool(self.loaded_save_data))
         self.ui.stop_button.setEnabled(False)
+        self.ui.guitar_tab.stop_button.setEnabled(False)
+        self.ui.guitar_tab.set_controls_enabled(True)
         self._sync_play_button()
         self.ui.piano_widget.set_pedal_active(False)
+        self.ui.guitar_tab.fretboard.clear()
 
     # --- Update ---
     def _manual_check_update(self):
@@ -440,13 +587,17 @@ class MainWindow(QMainWindow):
 
     def _on_no_update(self):
         self._reset_update_btn()
-        QMessageBox.information(self, I18nManager.t("msg_up_to_date"),
-            f"Teto Midi v{APP_VERSION} is the latest version.")
+        QMessageBox.information(
+            self, I18nManager.t("msg_up_to_date"),
+            f"Teto Midi v{APP_VERSION} is the latest version."
+        )
 
     def _on_check_failed(self):
         self._reset_update_btn()
-        QMessageBox.warning(self, I18nManager.t("msg_update_failed"),
-            "Could not reach GitHub.\nPlease check your internet connection.")
+        QMessageBox.warning(
+            self, I18nManager.t("msg_update_failed"),
+            "Could not reach GitHub.\nPlease check your internet connection."
+        )
 
     def _on_update_available(self, latest_tag: str, releases_url: str):
         reply = QMessageBox.question(
