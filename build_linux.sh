@@ -31,6 +31,7 @@ echo "Dang build binary..."
 pyinstaller --noconfirm --onefile \
     --name TetoMidi \
     --add-data "icon.ico:." \
+    --add-data "discord_avatar.png:." \
     main.py
 
 chmod +x dist/TetoMidi
