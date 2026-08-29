@@ -71,7 +71,7 @@ class SettingsTab(QWidget):
         left_col.addWidget(ov_card)
 
         self.check_update_btn = QPushButton("Check for updates")
-        self.check_update_btn.setToolTip("Check GitHub for a newer version of HuMidi")
+        self.check_update_btn.setToolTip("Check GitHub for a newer version of Teto Midi")
         left_col.addWidget(self.check_update_btn)
         left_col.addStretch()
 
