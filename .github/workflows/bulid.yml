@@ -29,6 +29,7 @@ jobs:
             --name TetoMidi `
             --icon icon.ico `
             --add-data "icon.ico;." `
+            --add-data "discord_avatar.png;." `
             main.py
 
       - name: Upload Windows artifact
@@ -68,6 +69,7 @@ jobs:
           pyinstaller --noconfirm --onefile \
             --name TetoMidi \
             --add-data "icon.ico:." \
+            --add-data "discord_avatar.png:." \
             main.py
 
       - name: Upload Linux artifact
