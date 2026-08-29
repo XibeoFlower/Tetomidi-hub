@@ -18,7 +18,7 @@ from ui.MainWindowUI import MainWindowUI
 from ui.TrackSelectionDialog import TrackSelectionDialog
 from ui.LoadSaveDialog import LoadSaveDialog
 
-APP_VERSION = "2.1"
+APP_VERSION = "3.2"
 
 class MainWindow(QMainWindow):
     def __init__(self):
