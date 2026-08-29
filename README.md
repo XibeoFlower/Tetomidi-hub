@@ -1,4 +1,4 @@
-# Teto Midi v3.0
+# Teto Midi hub
 
 **Teto Midi** is a MIDI playback and auto-play tool with a Kasane Teto–themed interface. It loads MIDI files (or pasted sheet-music text), can play them back with a live piano-roll visualizer, and can **auto-play the track through simulated key presses** into virtual piano games — such as the piano games found on Roblox — with optional humanization so the input feels less robotic.
 
