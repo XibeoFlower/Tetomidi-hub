@@ -4,16 +4,17 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from ui.widgets import make_card
+from managers.i18n import I18nManager
 
 
 class PlaybackTab(QWidget):
 
     PEDAL_MAPPING = {
-        "Auto (Default)": "hybrid",
-        "PedalAI":        "ai",
-        "Harmonic":        "legato",
-        "Rhythmic":        "rhythmic",
-        "None":            "none",
+        I18nManager.t("pedal_auto"): "hybrid",
+        I18nManager.t("pedal_ai"):     "ai",
+        I18nManager.t("pedal_harmonic"): "legato",
+        I18nManager.t("pedal_rhythmic"): "rhythmic",
+        I18nManager.t("pedal_none"):   "none",
     }
     PEDAL_MAPPING_INV = {v: k for k, v in PEDAL_MAPPING.items()}
 
@@ -44,18 +45,18 @@ class PlaybackTab(QWidget):
     # ── Card builders ──────────────────────────────────────────────────
 
     def _create_file_group(self):
-        card, layout = make_card("MIDI File")
+        card, layout = make_card(I18nManager.t("midi_file"))
 
-        self.file_path_label = QLabel("No file selected.")
+        self.file_path_label = QLabel(I18nManager.t("no_file_selected"))
         self.file_path_label.setObjectName("file_path_label")
         self.file_path_label.setWordWrap(True)
 
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(6)
-        self.browse_button = QPushButton("Browse…")
-        self.browse_button.setToolTip("Open a MIDI file to play")
-        self.load_saved_btn = QPushButton("Load Save")
-        self.load_saved_btn.setToolTip("Load a previously saved humanized performance")
+        self.browse_button = QPushButton(I18nManager.t("browse"))
+        self.browse_button.setToolTip(I18nManager.t("tt_browse"))
+        self.load_saved_btn = QPushButton(I18nManager.t("load_save"))
+        self.load_saved_btn.setToolTip(I18nManager.t("tt_load_save"))
         btn_layout.addWidget(self.browse_button)
         btn_layout.addWidget(self.load_saved_btn)
 
@@ -64,48 +65,47 @@ class PlaybackTab(QWidget):
         return card
 
     def _create_playback_group(self):
-        card, layout = make_card("Playback")
+        card, layout = make_card(I18nManager.t("playback"))
         grid = QGridLayout()
         grid.setSpacing(8)
         grid.setColumnMinimumWidth(1, 8)
         grid.setColumnStretch(2, 1)
 
-        tempo_label = QLabel("Tempo")
+        tempo_label = QLabel(I18nManager.t("tempo"))
         self.tempo_slider, self.tempo_spinbox = self._make_slider_spinbox(
             10.0, 200.0, 100.0, "%", factor=10.0, decimals=1
         )
         self.tempo_spinbox.setFixedWidth(72)
-        self.tempo_slider.setToolTip("Playback speed as a percentage of the original tempo")
-        self.tempo_spinbox.setToolTip("Playback speed as a percentage of the original tempo")
+        self.tempo_slider.setToolTip(I18nManager.t("tt_tempo"))
+        self.tempo_spinbox.setToolTip(I18nManager.t("tt_tempo"))
         grid.addWidget(tempo_label, 0, 0)
         grid.addWidget(self.tempo_slider, 0, 2)
         grid.addWidget(self.tempo_spinbox, 0, 3)
 
-        pedal_label = QLabel("Pedal")
+        pedal_label = QLabel(I18nManager.t("pedal"))
         self.pedal_style_combo = QComboBox()
         self.pedal_style_combo.addItems(list(self.PEDAL_MAPPING.keys()))
         self.pedal_style_combo.setToolTip(
-            "Auto (Default): Adaptive hybrid of rhythmic and harmonic analysis\n"
-            "AI Pedal: BiLSTM model-generated pedal with adaptive fallback\n"
-            "Harmonic: Hold pedal through harmonic regions, releasing at chord/bass changes\n"
-            "Rhythmic: Release pedal on beat boundaries only\n"
-            "None: No sustain pedal"
+            I18nManager.t("pedal_auto") + ": Adaptive hybrid of rhythmic and harmonic analysis\n"
+            + I18nManager.t("pedal_ai") + ": BiLSTM model-generated pedal\n"
+            + I18nManager.t("pedal_harmonic") + ": Hold pedal through harmonic regions\n"
+            + I18nManager.t("pedal_rhythmic") + ": Release pedal on beat boundaries\n"
+            + I18nManager.t("pedal_none") + ": No sustain pedal"
         )
         grid.addWidget(pedal_label, 1, 0)
         grid.addWidget(self.pedal_style_combo, 1, 2, 1, 2)
 
-        instrument_label = QLabel("Instrument")
+        instrument_label = QLabel(I18nManager.t("instrument"))
         self.instrument_combo = QComboBox()
-        self.instrument_combo.addItems(["Piano", "Guitar"])
+        self.instrument_combo.addItems([I18nManager.t("piano"), I18nManager.t("guitar")])
         self.instrument_combo.setToolTip(
-            "Piano: standard virtual-piano key layout (wide range, 88-key option)\n"
-            "Guitar: maps notes into a typical guitar range (~E2–E6) using the same\n"
-            "QWERTY grid most Roblox instrument games share"
+            I18nManager.t("piano") + ": standard virtual-piano key layout (wide range, 88-key option)\n"
+            + I18nManager.t("guitar") + ": maps notes into a typical guitar range"
         )
         grid.addWidget(instrument_label, 2, 0)
         grid.addWidget(self.instrument_combo, 2, 2, 1, 2)
 
-        transpose_label = QLabel("Transpose")
+        transpose_label = QLabel(I18nManager.t("transpose"))
         self.transpose_spinbox = QSpinBox()
         self.transpose_spinbox.setRange(-24, 24)
         self.transpose_spinbox.setValue(0)
@@ -115,18 +115,18 @@ class PlaybackTab(QWidget):
         grid.addWidget(transpose_label, 3, 0)
         grid.addWidget(self.transpose_spinbox, 3, 2, 1, 2)
 
-        self.use_88_key_check = QCheckBox("88-Key Layout")
+        self.use_88_key_check = QCheckBox(I18nManager.t("key_layout_88"))
         self.use_88_key_check.setToolTip(
             "Map notes to the full 88-key piano layout instead of a compressed keyboard layout\n"
             "(has no effect when Instrument is set to Guitar)"
         )
         self.instrument_combo.currentTextChanged.connect(
-            lambda text: self.use_88_key_check.setEnabled(text == "Piano")
+            lambda text: self.use_88_key_check.setEnabled(text == I18nManager.t("piano"))
         )
-        self.countdown_check = QCheckBox("Countdown")
-        self.countdown_check.setToolTip("Show a 3-second countdown before playback begins")
-        self.debug_check = QCheckBox("Debug Output")
-        self.debug_check.setToolTip("Print verbose event logs to the Debug tab during playback")
+        self.countdown_check = QCheckBox(I18nManager.t("countdown"))
+        self.countdown_check.setToolTip(I18nManager.t("tt_countdown"))
+        self.debug_check = QCheckBox(I18nManager.t("debug_output"))
+        self.debug_check.setToolTip(I18nManager.t("tt_debug"))
         layout.addLayout(grid)
         layout.addWidget(self.use_88_key_check)
         layout.addWidget(self.countdown_check)
@@ -135,27 +135,19 @@ class PlaybackTab(QWidget):
         return card
 
     def _create_humanization_group(self):
-        card, main_v_layout = make_card("Humanization")
+        card, main_v_layout = make_card(I18nManager.t("humanization"))
 
-        self.select_all_humanization_check = QCheckBox("All")
-        self.select_all_humanization_check.setToolTip(
-            "Enable or disable all humanization options at once"
-        )
+        self.select_all_humanization_check = QCheckBox(I18nManager.t("all_humanize"))
+        self.select_all_humanization_check.setToolTip(I18nManager.t("tt_humanize_all"))
 
         self.all_humanization_checks = {}
         self.all_humanization_spinboxes = {}
         self.all_humanization_sliders = {}
 
-        self.all_humanization_checks['simulate_hands'] = QCheckBox("Simulate Hands")
-        self.all_humanization_checks['simulate_hands'].setToolTip(
-            "Assign notes to left/right hand and limit simultaneous finger usage "
-            "to simulate realistic hand behavior"
-        )
-        self.all_humanization_checks['enable_chord_roll'] = QCheckBox("Chord Roll")
-        self.all_humanization_checks['enable_chord_roll'].setToolTip(
-            "Slightly stagger the notes within each chord to simulate the natural "
-            "roll of fingers across the keys"
-        )
+        self.all_humanization_checks['simulate_hands'] = QCheckBox(I18nManager.t("simulate_hands"))
+        self.all_humanization_checks['simulate_hands'].setToolTip(I18nManager.t("tt_simulate_hands"))
+        self.all_humanization_checks['enable_chord_roll'] = QCheckBox(I18nManager.t("chord_roll"))
+        self.all_humanization_checks['enable_chord_roll'].setToolTip(I18nManager.t("tt_chord_roll"))
 
         main_v_layout.addWidget(self.select_all_humanization_check)
         main_v_layout.addWidget(self.all_humanization_checks['simulate_hands'])
@@ -171,19 +163,20 @@ class PlaybackTab(QWidget):
         detailed_layout.setColumnStretch(2, 1)
         detailed_layout.setColumnMinimumWidth(1, 4)
 
-        def add_row(row_idx, name, key, min_val, max_val, def_val,
-                    suffix, factor=1.0, decimals=3, tooltip=""):
-            check = QCheckBox(name)
+        def add_row(row_idx, name_key, key, min_val, max_val, def_val,
+                    suffix, factor=1.0, decimals=3, tooltip_key=""):
+            check = QCheckBox(I18nManager.t(name_key))
             slider, spinbox = self._make_slider_spinbox(
                 min_val, max_val, def_val, suffix, factor=factor, decimals=decimals
             )
             spinbox.setFixedWidth(80)
             check.toggled.connect(slider.setEnabled)
             check.toggled.connect(spinbox.setEnabled)
-            if tooltip:
-                check.setToolTip(tooltip)
-                slider.setToolTip(tooltip)
-                spinbox.setToolTip(tooltip)
+            if tooltip_key:
+                tt = I18nManager.t(tooltip_key)
+                check.setToolTip(tt)
+                slider.setToolTip(tt)
+                spinbox.setToolTip(tt)
             detailed_layout.addWidget(check,   row_idx, 0)
             detailed_layout.addWidget(slider,  row_idx, 2)
             detailed_layout.addWidget(spinbox, row_idx, 3)
@@ -191,24 +184,19 @@ class PlaybackTab(QWidget):
             self.all_humanization_sliders[key]  = slider
             self.all_humanization_spinboxes[key] = spinbox
 
-        add_row(0, "Vary Timing",       "vary_timing",       0,  0.1, 0.01, " s",
-                factor=10000.0,
-                tooltip="Add random timing offsets to note events (in seconds)")
-        add_row(1, "Vary Articulation", "vary_articulation", 50, 100,   95, "%",
-                factor=100.0, decimals=1,
-                tooltip="Randomize note hold duration — lower values create a more staccato feel")
-        add_row(2, "Hand Drift",        "hand_drift",         0, 100,   25, "%",
-                factor=100.0, decimals=1,
-                tooltip="Simulate gradual timing drift between the left and right hands")
-        add_row(3, "Mistakes",          "mistake_chance",     0,  10,    0, "%",
-                factor=100.0, decimals=1,
-                tooltip="Randomly skip notes to simulate human errors")
-        add_row(4, "Tempo Sway",        "tempo_sway",         0, 0.1,   0, " s",
-                factor=10000.0,
-                tooltip="Apply a sinusoidal tempo variation across the song for a more expressive feel")
+        add_row(0, "vary_timing",       "vary_timing",       0,  0.1, 0.01, " s",
+                factor=10000.0, tooltip_key="tt_vary_timing")
+        add_row(1, "vary_articulation", "vary_articulation", 50, 100,   95, "%",
+                factor=100.0, decimals=1, tooltip_key="tt_vary_articulation")
+        add_row(2, "hand_drift",        "hand_drift",         0, 100,   25, "%",
+                factor=100.0, decimals=1, tooltip_key="tt_hand_drift")
+        add_row(3, "mistakes",          "mistake_chance",     0,  10,    0, "%",
+                factor=100.0, decimals=1, tooltip_key="tt_mistakes")
+        add_row(4, "tempo_sway",        "tempo_sway",         0, 0.1,   0, " s",
+                factor=10000.0, tooltip_key="tt_tempo_sway")
 
-        self.invert_sway_check = QCheckBox("Invert Sway")
-        self.invert_sway_check.setToolTip("Invert the phase of the tempo sway curve")
+        self.invert_sway_check = QCheckBox(I18nManager.t("invert_sway"))
+        self.invert_sway_check.setToolTip(I18nManager.t("tt_invert_sway"))
         self.all_humanization_checks['invert_tempo_sway'] = self.invert_sway_check
         self.all_humanization_checks['tempo_sway'].toggled.connect(
             self.invert_sway_check.setEnabled
@@ -285,9 +273,9 @@ class PlaybackTab(QWidget):
     def reset_to_default(self) -> None:
         self.tempo_spinbox.setValue(100)
         self.transpose_spinbox.setValue(0)
-        self.pedal_style_combo.setCurrentText("Auto (Default)")
+        self.pedal_style_combo.setCurrentText(I18nManager.t("pedal_auto"))
         self.use_88_key_check.setChecked(False)
-        self.instrument_combo.setCurrentText("Piano")
+        self.instrument_combo.setCurrentText(I18nManager.t("piano"))
         self.countdown_check.setChecked(True)
         self.debug_check.setChecked(False)
         self.all_humanization_spinboxes['vary_timing'].setValue(0.010)
@@ -303,11 +291,11 @@ class PlaybackTab(QWidget):
     def load_config(self, config: dict) -> None:
         self.tempo_spinbox.setValue(config.get('tempo', 100.0))
         self.transpose_spinbox.setValue(config.get('transpose', 0))
-        display = self.PEDAL_MAPPING_INV.get(config.get('pedal_style', 'hybrid'), "Auto (Default)")
+        display = self.PEDAL_MAPPING_INV.get(config.get('pedal_style', 'hybrid'), I18nManager.t("pedal_auto"))
         self.pedal_style_combo.setCurrentText(display)
         self.use_88_key_check.setChecked(config.get('use_88_key_layout', False))
         instrument = config.get('instrument', 'piano')
-        self.instrument_combo.setCurrentText("Guitar" if instrument == 'guitar' else "Piano")
+        self.instrument_combo.setCurrentText(I18nManager.t("guitar") if instrument == 'guitar' else I18nManager.t("piano"))
         self.countdown_check.setChecked(config.get('countdown', True))
         self.debug_check.setChecked(config.get('debug_mode', False))
         self.select_all_humanization_check.setChecked(config.get('select_all_humanization', False))
@@ -376,5 +364,5 @@ class PlaybackTab(QWidget):
             'value_mistake_chance':    self.all_humanization_spinboxes['mistake_chance'].value(),
             'enable_tempo_sway':       self.all_humanization_checks['tempo_sway'].isChecked(),
             'value_tempo_sway_intensity': self.all_humanization_spinboxes['tempo_sway'].value(),
-            'invert_tempo_sway':       self.all_humanization_checks['invert_tempo_sway'].isChecked(),
+            'invert_tempo_sway':     self.all_humanization_checks['invert_tempo_sway'].isChecked(),
         }
