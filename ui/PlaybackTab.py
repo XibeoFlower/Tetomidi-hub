@@ -94,6 +94,17 @@ class PlaybackTab(QWidget):
         grid.addWidget(pedal_label, 1, 0)
         grid.addWidget(self.pedal_style_combo, 1, 2, 1, 2)
 
+        instrument_label = QLabel("Instrument")
+        self.instrument_combo = QComboBox()
+        self.instrument_combo.addItems(["Piano", "Guitar"])
+        self.instrument_combo.setToolTip(
+            "Piano: standard virtual-piano key layout (wide range, 88-key option)\n"
+            "Guitar: maps notes into a typical guitar range (~E2–E6) using the same\n"
+            "QWERTY grid most Roblox instrument games share"
+        )
+        grid.addWidget(instrument_label, 2, 0)
+        grid.addWidget(self.instrument_combo, 2, 2, 1, 2)
+
         transpose_label = QLabel("Transpose")
         self.transpose_spinbox = QSpinBox()
         self.transpose_spinbox.setRange(-24, 24)
@@ -101,12 +112,16 @@ class PlaybackTab(QWidget):
         self.transpose_spinbox.setSuffix(" st")
         self.transpose_spinbox.setFixedWidth(72)
         self.transpose_spinbox.setToolTip("Shift all notes up or down by the given number of semitones")
-        grid.addWidget(transpose_label, 2, 0)
-        grid.addWidget(self.transpose_spinbox, 2, 2, 1, 2)
+        grid.addWidget(transpose_label, 3, 0)
+        grid.addWidget(self.transpose_spinbox, 3, 2, 1, 2)
 
         self.use_88_key_check = QCheckBox("88-Key Layout")
         self.use_88_key_check.setToolTip(
-            "Map notes to the full 88-key piano layout instead of a compressed keyboard layout"
+            "Map notes to the full 88-key piano layout instead of a compressed keyboard layout\n"
+            "(has no effect when Instrument is set to Guitar)"
+        )
+        self.instrument_combo.currentTextChanged.connect(
+            lambda text: self.use_88_key_check.setEnabled(text == "Piano")
         )
         self.countdown_check = QCheckBox("Countdown")
         self.countdown_check.setToolTip("Show a 3-second countdown before playback begins")
@@ -272,6 +287,7 @@ class PlaybackTab(QWidget):
         self.transpose_spinbox.setValue(0)
         self.pedal_style_combo.setCurrentText("Auto (Default)")
         self.use_88_key_check.setChecked(False)
+        self.instrument_combo.setCurrentText("Piano")
         self.countdown_check.setChecked(True)
         self.debug_check.setChecked(False)
         self.all_humanization_spinboxes['vary_timing'].setValue(0.010)
@@ -290,6 +306,8 @@ class PlaybackTab(QWidget):
         display = self.PEDAL_MAPPING_INV.get(config.get('pedal_style', 'hybrid'), "Auto (Default)")
         self.pedal_style_combo.setCurrentText(display)
         self.use_88_key_check.setChecked(config.get('use_88_key_layout', False))
+        instrument = config.get('instrument', 'piano')
+        self.instrument_combo.setCurrentText("Guitar" if instrument == 'guitar' else "Piano")
         self.countdown_check.setChecked(config.get('countdown', True))
         self.debug_check.setChecked(config.get('debug_mode', False))
         self.select_all_humanization_check.setChecked(config.get('select_all_humanization', False))
@@ -316,6 +334,7 @@ class PlaybackTab(QWidget):
             'transpose':             self.transpose_spinbox.value(),
             'countdown':             self.countdown_check.isChecked(),
             'use_88_key_layout':     self.use_88_key_check.isChecked(),
+            'instrument':            self.instrument_combo.currentText().lower(),
             'pedal_style':           internal,
             'debug_mode':            self.debug_check.isChecked(),
             'simulate_hands':        self.all_humanization_checks['simulate_hands'].isChecked(),
@@ -341,6 +360,7 @@ class PlaybackTab(QWidget):
             'transpose':               self.transpose_spinbox.value(),
             'pedal_style':             internal,
             'use_88_key_layout':       self.use_88_key_check.isChecked(),
+            'instrument':              self.instrument_combo.currentText().lower(),
             'countdown':               self.countdown_check.isChecked(),
             'debug_mode':              self.debug_check.isChecked(),
             'select_all_humanization': self.select_all_humanization_check.isChecked(),
