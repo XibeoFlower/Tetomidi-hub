@@ -76,13 +76,12 @@ pyinstaller --noconfirm --onefile --windowed --clean ^
     --hidden-import pynput.keyboard._win32 ^
     --hidden-import pynput.mouse._win32 ^
     --hidden-import torch ^
-    --hidden-import transkun ^
-    --hidden-import transkun.transcribe ^
+    --hidden-import piano_transcription_inference ^
     --hidden-import pkg_resources ^
     --hidden-import pkg_resources.py2_warn ^
     --collect-submodules pkg_resources ^
     --collect-data setuptools ^
-    --copy-metadata transkun ^
+    --copy-metadata piano_transcription_inference ^
     --copy-metadata setuptools ^
     --collect-submodules PyQt6 ^
     --collect-submodules mido ^
