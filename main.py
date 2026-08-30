@@ -184,7 +184,13 @@ class MainWindow(QMainWindow):
 
         dialog = TrackSelectionDialog(tracks, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self._guitar_selected_tracks = dialog.get_selection()
+            # FIX: cung loi nhu _parse_and_select_tracks - convert dict selection
+            # sang tuple (MidiTrack, role) truoc khi dua vao PlaybackController.
+            raw_selection = dialog.get_selection()
+            self._guitar_selected_tracks = [
+                (tracks[item["index"]], item["hand"])
+                for item in raw_selection if item["play"]
+            ]
             self.parsed_tempo_map = tempo_map
             self.ui.log_output.append(
                 f"{I18nManager.t('status_selected_tracks')} {len(self._guitar_selected_tracks)}"
@@ -402,7 +408,15 @@ class MainWindow(QMainWindow):
 
         dialog = TrackSelectionDialog(tracks, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.selected_tracks_info = dialog.get_selection()
+            # FIX: dialog.get_selection() tra ve list dict {"index","play","hand",...}
+            # nhung PlaybackController._prepare_notes() can list tuple
+            # (MidiTrack, role) chi gom cac track da tick Play. Truoc day
+            # gan thang list dict vao day se crash khi bam Play.
+            raw_selection = dialog.get_selection()
+            self.selected_tracks_info = [
+                (tracks[item["index"]], item["hand"])
+                for item in raw_selection if item["play"]
+            ]
             self.parsed_tempo_map = tempo_map
             self.ui.log_output.append(
                 f"{I18nManager.t('status_selected_tracks')} {len(self.selected_tracks_info)}"
