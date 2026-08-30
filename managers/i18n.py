@@ -19,6 +19,7 @@ class TranslationStrings:
     nav_settings: str = "Settings"
     nav_debug: str = "Debug"
     nav_guitar: str = "Guitar"
+    nav_edit_midi: str = "Edit MIDI"
 
     # Playback Tab
     midi_file: str = "MIDI File"
@@ -163,6 +164,7 @@ VIETNAMESE = TranslationStrings(
     nav_settings="Cài Đặt",
     nav_debug="Gỡ Lỗi",
     nav_guitar="Guitar",
+    nav_edit_midi="Soạn MIDI",
 
     midi_file="Tập Tin MIDI",
     no_file_selected="Chưa chọn tập tin.",
