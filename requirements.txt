@@ -14,7 +14,8 @@ transkun>=1.0.0
 torch>=2.0.0
 numpy>=1.24.0
 scipy>=1.10.0
-setuptools>=65.0  # cung cap pkg_resources ma transkun can luc runtime
+setuptools>=70.0.0  # FIX: Python 3.12+ cần setuptools mới để có pkg_resources ổn định
+importlib_resources>=6.0  # FIX: Backup nếu thư viện nào đó đã migrate sang importlib
 
 # --- GUI ---
 PyQt6>=6.6.0
