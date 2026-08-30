@@ -126,6 +126,15 @@ class MainWindow(QMainWindow):
         # External IO bridging
         self.hotkey_manager.toggle_requested.connect(self.toggle_playback_state)
         self.hotkey_manager.bound_updated.connect(self._on_hotkey_bound)
+        self.hotkey_manager.listener_unavailable.connect(self._on_hotkey_unavailable)
+        if not self.hotkey_manager.available:
+            # The listener may have already failed during HotkeyManager.__init__(),
+            # before this connection existed — surface it now instead of losing it.
+            self._on_hotkey_unavailable(
+                "Global hotkey listener unavailable at startup. "
+                "The F6-style hotkey won't work, but the on-screen Play/Stop "
+                "buttons still function normally."
+            )
 
         # System Logic bridging to the View representations
         self.playback_controller.status_updated.connect(self.ui.log_output.append)
@@ -275,6 +284,21 @@ class MainWindow(QMainWindow):
         self.ui.settings_tab.hk_btn.setText(I18nManager.t("change"))
         self.ui.settings_tab.hk_btn.setEnabled(True)
         self._sync_play_button()
+
+    def _on_hotkey_unavailable(self, message: str):
+        # Don't block app startup with a modal — just log it and let the
+        # user notice via the status/debug output. The rest of the app
+        # (Play/Stop buttons, file loading, etc.) still works fine even
+        # without a global hotkey listener.
+        try:
+            self.ui.log_output.append(f"[Hotkey] {message}")
+        except Exception:
+            pass
+        # If the user had just clicked "Change" and the button is stuck
+        # showing "Listening...", restore it instead of leaving it disabled.
+        if not self.ui.settings_tab.hk_btn.isEnabled():
+            self.ui.settings_tab.hk_btn.setText(I18nManager.t("change"))
+            self.ui.settings_tab.hk_btn.setEnabled(True)
 
     def _sync_play_button(self):
         """Single authoritative update for the play button."""
