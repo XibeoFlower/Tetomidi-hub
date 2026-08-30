@@ -28,16 +28,13 @@ class MainWindow(QMainWindow):
         self.setMinimumHeight(485)
         self.resize(self.minimumWidth(), self.minimumHeight())
 
-        # Set specific Icon base execution path
         base_path = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
         icon_path = os.path.join(base_path, 'icon.ico')
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
-        # Instantiate Domains
         self.config_manager = ConfigManager()
 
-        # Load config early to set language before UI builds
         loaded_cfg = self.config_manager.load()
         lang = loaded_cfg.get('language', 'en') if loaded_cfg else 'en'
         I18nManager.set_language(lang)
@@ -46,7 +43,6 @@ class MainWindow(QMainWindow):
         self.playback_controller = PlaybackController()
         self.hotkey_manager = HotkeyManager()
 
-        # Global Application States
         self.loaded_save_data = None
         self.loaded_save_filename = None
         self.selected_tracks_info = None
@@ -56,13 +52,11 @@ class MainWindow(QMainWindow):
         self._max_note_duration = 0.0
         self.current_pedal_intervals = []
 
-        # Guitar mode state
         self._guitar_file_loaded = False
         self._guitar_selected_tracks = None
 
         self._bind_signals()
 
-        # Load initialization data
         if loaded_cfg:
             self.ui.load_config_to_ui(loaded_cfg, self.config_manager.save_dir)
             self.ui.settings_tab.hk_label.setText(
@@ -76,23 +70,22 @@ class MainWindow(QMainWindow):
         self._update_checker.start()
 
     def _bind_signals(self):
-        # UI controls bound strictly to Execution/Router logic
         self.ui.play_button.clicked.connect(self.handle_play)
         self.ui.stop_button.clicked.connect(self.handle_stop)
         self.ui.save_button.clicked.connect(self.handle_save)
         self.ui.reset_button.clicked.connect(self.ui.reset_controls_to_default)
 
-        # Playback tab
         self.ui.playback_tab.browse_button.clicked.connect(self.select_file)
         self.ui.playback_tab.load_saved_btn.clicked.connect(self.open_load_dialog)
 
-        # Guitar tab (NEW)
         self.ui.guitar_tab.browse_button.clicked.connect(self.select_file_guitar)
         self.ui.guitar_tab.load_saved_btn.clicked.connect(self.open_load_dialog)
         self.ui.guitar_tab.play_button.clicked.connect(self.handle_guitar_play)
         self.ui.guitar_tab.stop_button.clicked.connect(self.handle_stop)
 
-        # Settings
+        # ── TranscriberTab bindings (NEW) ──────────────────────────────
+        self.ui.transcriber_tab.load_midi_requested.connect(self._on_transcribed_midi_load)
+
         self.ui.settings_tab.save_browse_btn.clicked.connect(self._browse_save_dir)
         self.ui._collapsed_load_btn.clicked.connect(self.select_file)
         self.ui._collapsed_load_saved_btn.clicked.connect(self.open_load_dialog)
@@ -100,46 +93,36 @@ class MainWindow(QMainWindow):
         self.ui.settings_tab.hk_btn.clicked.connect(self._change_hotkey)
         self.ui.settings_tab.check_update_btn.clicked.connect(self._manual_check_update)
 
-        # Language change
         self.ui.settings_tab.lang_combo.currentIndexChanged.connect(self._on_language_changed)
 
-        # View manipulations bound to Window behavior
         self.ui.collapse_btn.clicked.connect(self._sync_play_button)
         self.ui.settings_tab.always_top_check.toggled.connect(self._toggle_always_on_top)
         self.ui.settings_tab.opacity_slider.valueChanged.connect(self._change_opacity)
 
-        # Settings-tab persistence
         self.ui.settings_tab.always_top_check.toggled.connect(self._save_config)
         self.ui.settings_tab.opacity_slider.valueChanged.connect(self._save_config)
         self.ui.settings_tab.timeline_vis_check.toggled.connect(self._save_config)
         self.ui.settings_tab.piano_vis_check.toggled.connect(self._save_config)
         self.ui.settings_tab.lang_combo.currentIndexChanged.connect(self._save_config)
 
-        # Translator tab
         self.ui.translator_tab.play_sheet_requested.connect(self._on_play_sheet)
         self.ui.translator_tab.export_requested.connect(self._on_export_sheet)
 
-        # Edit MIDI tab (NEW)
         self.ui.edit_midi_tab.test_requested.connect(self._on_edit_midi_test)
 
-        # Timeline logic bridging
         self.ui.timeline_widget.seek_requested.connect(self._on_timeline_seek)
         self.ui.timeline_widget.scrub_position_changed.connect(self._on_visual_scrub)
 
-        # External IO bridging
         self.hotkey_manager.toggle_requested.connect(self.toggle_playback_state)
         self.hotkey_manager.bound_updated.connect(self._on_hotkey_bound)
         self.hotkey_manager.listener_unavailable.connect(self._on_hotkey_unavailable)
         if not self.hotkey_manager.available:
-            # The listener may have already failed during HotkeyManager.__init__(),
-            # before this connection existed — surface it now instead of losing it.
             self._on_hotkey_unavailable(
                 "Global hotkey listener unavailable at startup. "
                 "The F6-style hotkey won't work, but the on-screen Play/Stop "
                 "buttons still function normally."
             )
 
-        # System Logic bridging to the View representations
         self.playback_controller.status_updated.connect(self.ui.log_output.append)
         self.playback_controller.progress_updated.connect(self.update_progress)
         self.playback_controller.playback_finished.connect(self.on_playback_finished)
@@ -152,24 +135,30 @@ class MainWindow(QMainWindow):
         self.playback_controller.save_successful.connect(self._on_save_successful)
         self.playback_controller.save_failed.connect(self._on_save_failed)
 
-        # Guitar visualizer bridge (NEW)
         self.playback_controller.visualizer_updated.connect(self._on_guitar_notes_update)
 
-    # --- Guitar Mode (NEW) ---
+    # ── Transcriber → Playback bridge (NEW) ──────────────────────────
+    def _on_transcribed_midi_load(self, mid_path: str):
+        """Auto-load a MIDI file produced by the Transcriber into Playback."""
+        self.loaded_save_data = None
+        self.loaded_save_filename = None
+        self.ui.playback_tab.playback_group.setEnabled(True)
+        self.ui.playback_tab.humanization_group.setEnabled(True)
+        self.ui.update_file_label(os.path.basename(mid_path), mid_path)
+        self.ui.log_output.append(f"Loaded transcribed MIDI: {mid_path}")
+        self._parse_and_select_tracks(mid_path)
+        self.ui.tabs.setCurrentIndex(0)
+
+    # --- Guitar Mode ---
     def _on_guitar_notes_update(self, pitches: list):
-        """Forward active pitches to guitar fretboard visualizer."""
         notes = [(p, 100) for p in pitches]
         self.ui.guitar_tab.fretboard.set_active_notes(notes)
-        # Update chord label with pitch count
         if pitches:
-            self.ui.guitar_tab.note_info_label.setText(
-                f"{len(pitches)} note(s) active"
-            )
+            self.ui.guitar_tab.note_info_label.setText(f"{len(pitches)} note(s) active")
         else:
             self.ui.guitar_tab.note_info_label.setText("—")
 
     def select_file_guitar(self):
-        """File selection specifically for Guitar mode."""
         if self.playback_controller.is_playing() or self.playback_controller.is_paused():
             return
         filepath, _ = QFileDialog.getOpenFileName(
@@ -209,29 +198,23 @@ class MainWindow(QMainWindow):
             self._guitar_file_loaded = False
 
     def handle_guitar_play(self):
-        """Start playback in Guitar mode."""
         if self.playback_controller.is_playing() or self.playback_controller.is_paused():
             self.toggle_playback_state()
             return
 
         if not self._guitar_file_loaded or not self._guitar_selected_tracks:
             QMessageBox.warning(
-                self, I18nManager.t("msg_no_notes"),
-                I18nManager.t("msg_no_tracks")
+                self, I18nManager.t("msg_no_notes"), I18nManager.t("msg_no_tracks")
             )
             return
 
-        # Build guitar config
         guitar_cfg = self.ui.guitar_tab.gather_guitar_config()
-
-        # Merge with playback config but force guitar instrument
         config = self.ui.gather_playback_config()
         config.update(guitar_cfg)
         config['instrument'] = 'guitar'
         config['use_88_key_layout'] = False
 
         self.playback_controller.play(config, self._guitar_selected_tracks)
-
         self.ui.guitar_tab.set_controls_enabled(False)
         self.ui.guitar_tab.play_button.setEnabled(True)
         self.ui.guitar_tab.stop_button.setEnabled(True)
@@ -251,8 +234,10 @@ class MainWindow(QMainWindow):
     # --- Windows Specific GUI Modifications ---
     def _toggle_always_on_top(self, checked):
         flags = self.windowFlags()
-        if checked: self.setWindowFlags(flags | Qt.WindowType.WindowStaysOnTopHint)
-        else: self.setWindowFlags(flags & ~Qt.WindowType.WindowStaysOnTopHint)
+        if checked:
+            self.setWindowFlags(flags | Qt.WindowType.WindowStaysOnTopHint)
+        else:
+            self.setWindowFlags(flags & ~Qt.WindowType.WindowStaysOnTopHint)
         self.show()
 
     def _change_opacity(self, value):
@@ -289,22 +274,15 @@ class MainWindow(QMainWindow):
         self._sync_play_button()
 
     def _on_hotkey_unavailable(self, message: str):
-        # Don't block app startup with a modal — just log it and let the
-        # user notice via the status/debug output. The rest of the app
-        # (Play/Stop buttons, file loading, etc.) still works fine even
-        # without a global hotkey listener.
         try:
             self.ui.log_output.append(f"[Hotkey] {message}")
         except Exception:
             pass
-        # If the user had just clicked "Change" and the button is stuck
-        # showing "Listening...", restore it instead of leaving it disabled.
         if not self.ui.settings_tab.hk_btn.isEnabled():
             self.ui.settings_tab.hk_btn.setText(I18nManager.t("change"))
             self.ui.settings_tab.hk_btn.setEnabled(True)
 
     def _sync_play_button(self):
-        """Single authoritative update for the play button."""
         key_str = self.hotkey_manager._format_key_string(self.hotkey_manager.current_key)
         t = I18nManager.t
         if self.ui._is_collapsed:
@@ -401,7 +379,6 @@ class MainWindow(QMainWindow):
             if selected_file and data:
                 self.loaded_save_data = data
                 self.loaded_save_filename = os.path.basename(selected_file)
-
                 self.ui.update_file_label(self.loaded_save_filename, selected_file)
                 self.ui.playback_tab.playback_group.setEnabled(False)
                 self.ui.playback_tab.humanization_group.setEnabled(False)
@@ -426,7 +403,7 @@ class MainWindow(QMainWindow):
         dialog = TrackSelectionDialog(tracks, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.selected_tracks_info = dialog.get_selection()
-            self.parsed_tempo_map = tempo_map 
+            self.parsed_tempo_map = tempo_map
             self.ui.log_output.append(
                 f"{I18nManager.t('status_selected_tracks')} {len(self.selected_tracks_info)}"
             )
@@ -530,11 +507,8 @@ class MainWindow(QMainWindow):
             f"{I18nManager.t('status_exported')}: {format_name} ({len(text.splitlines())} lines)"
         )
 
-    # --- Edit MIDI tab (NEW) ---
+    # --- Edit MIDI tab ---
     def _on_edit_midi_test(self, notes: list, bpm: float):
-        """Send the piano-roll's current notes straight into the normal
-        playback/keystroke pipeline, so the user can test what they just
-        drew/edited without exporting a file first."""
         if self.playback_controller.is_playing() or self.playback_controller.is_paused():
             QMessageBox.warning(
                 self, I18nManager.t("msg_no_tracks"),
@@ -550,9 +524,7 @@ class MainWindow(QMainWindow):
         config = self.ui.gather_playback_config()
 
         self.loaded_save_data = None
-        self.ui.log_output.append(
-            f"Testing edited MIDI: {len(notes)} note(s) at {bpm} BPM"
-        )
+        self.ui.log_output.append(f"Testing edited MIDI: {len(notes)} note(s) at {bpm} BPM")
         self.playback_controller.play_from_notes(config, notes, tempo_map)
         self.ui.set_controls_enabled(False)
         self.ui.play_button.setEnabled(True)
@@ -589,7 +561,7 @@ class MainWindow(QMainWindow):
         QMessageBox.critical(self, I18nManager.t("msg_save_error"), error_message)
 
     def handle_play(self):
-        if self.playback_controller.is_playing() or self.playback_controller.is_paused(): 
+        if self.playback_controller.is_playing() or self.playback_controller.is_paused():
             self.toggle_playback_state()
             return
 
