@@ -1,522 +1,496 @@
-🎹 Teto Midi
-Teto Midi is a desktop MIDI player and audio-to-MIDI transcription tool built with Python and PyQt6.
-It is designed for virtual piano and guitar applications, especially games and software that receive keyboard input. Teto Midi can load MIDI files, simulate keyboard presses, visualize notes, translate sheet music, and convert audio recordings such as MP3 files into MIDI.
-Current version: 3.4 beta
-✨ Features
-🎹 MIDI Playback
-Load .mid and .midi files
-Automatically map MIDI notes to keyboard keys
-Support for 61-key and 88-key layouts
-Select individual MIDI tracks before playback
-Adjustable tempo
-Transpose support
-Play / Pause / Resume / Stop
-Global playback hotkey
-🎸 Guitar Mode
-Guitar-specific MIDI mapping
-Interactive fretboard visualizer
-Guitar-oriented playback
-Visualize currently active notes
-🎵 MP3 → MIDI Transcriber
-Convert audio recordings into MIDI files directly inside Teto Midi.
-Supported audio formats include:
-.mp3
-.wav
-.flac
-.m4a
-.ogg
-.aac
-.wma
-The audio loader automatically converts the input to mono 44.1 kHz audio, which is required by the TransKun transcription engine.
-👁️ Visualizer
-Piano keyboard visualization
-Piano-roll style timeline
-Real-time note visualization
-Playback position tracking
-📝 Sheet Music Translator
-Import sheet music
-Convert supported sheet formats into playable notes
-Play translated music
-Export translated data to supported formats
-🧠 Humanization
-Make MIDI playback sound and behave more naturally.
-Available features include:
-Timing variation
-Chord rolling
-Velocity variation
-Articulation variation
-Tempo sway
-Mistake simulation
-Drift correction
-Hand simulation
-🦶 Smart Pedal
-Multiple pedal modes are available:
-Auto
-PedalAI
-Harmonic
-Rhythmic
-None
-🎨 Customization
-English / Vietnamese interface
-Custom themes
-Always-on-top mode
-Window opacity
-Mini / collapsed mode
-Custom playback hotkey
-📋 Requirements
-Windows
-Recommended:
-Windows 10 or newer
-Python 3.10+
-Git
-Internet connection for installing dependencies
-Linux
-Required:
-Python 3.10+
-Git
-PyQt6 system libraries
-pynput
-Linux distributions using Wayland may require additional permissions for keyboard input simulation.
-📥 Installation
-Option 1 — Run from Source
-1. Clone the repository
-Open Terminal, PowerShell, or Command Prompt:
+
+readme_content = """<div align="center">
+
+# 🎹 Teto Midi Hub
+
+**Auto MIDI Player for Roblox & Virtual Piano — with AI Transcription**
+
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://python.org)
+[![PyQt6](https://img.shields.io/badge/PyQt6-6.0%2B-green)](https://riverbankcomputing.com/software/pyqt)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-3.4_beta-orange)](https://github.com/XibeoFlower/Tetomidi-hub/releases)
+
+*Turn audio into MIDI. Turn MIDI into keyboard input. Play music your way.*
+
+[Features](#-features) • [Installation](#-installation) • [Roblox Setup](#-roblox-setup-guide) • [Usage](#-usage) • [Troubleshooting](#-troubleshooting)
+
+</div>
+
+---
+
+## 📋 Table of Contents
+
+- [Overview](#-overview)
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+  - [Windows](#windows)
+  - [Linux](#linux)
+- [Roblox Setup Guide](#-roblox-setup-guide)
+- [Usage](#-usage)
+  - [Playing MIDI Files](#playing-midi-files)
+  - [MP3 → MIDI Transcription](#mp3--midi-transcription)
+  - [Guitar Mode](#guitar-mode)
+  - [Humanization](#humanization)
+  - [Smart Pedal](#smart-pedal)
+  - [Visualizer](#visualizer)
+  - [Sheet Music Translator](#sheet-music-translator)
+  - [Global Hotkey](#global-hotkey)
+- [Building Standalone App](#-building-standalone-application)
+- [Updating](#-updating)
+- [Troubleshooting](#-troubleshooting)
+- [Project Structure](#-project-structure)
+- [Credits](#-credits)
+
+---
+
+## 🎯 Overview
+
+**Teto Midi Hub** is a desktop MIDI player and audio-to-MIDI transcription tool built with **Python** and **PyQt6**. It is specifically designed for **Roblox virtual piano/guitar games** and any software that receives keyboard input.
+
+Whether you have a MIDI file, an MP3 song, or sheet music — Teto Midi can convert it into playable keyboard input and send it directly to your Roblox game.
+
+**Current Version:** `3.4 beta`
+
+---
+
+## ✨ Features
+
+### 🎹 Core Playback
+- Load `.mid` / `.midi` files
+- Auto-map MIDI notes to keyboard keys
+- Support for **61-key** and **88-key** layouts
+- Select individual MIDI tracks
+- Adjustable tempo & transpose
+- Play / Pause / Resume / Stop controls
+
+### 🎸 Guitar Mode
+- Guitar-specific MIDI mapping
+- Interactive fretboard visualizer
+- Guitar-oriented playback
+
+### 🎵 MP3 → MIDI Transcriber *(New in v3.4)*
+- Convert **MP3, WAV, FLAC, M4A, OGG, AAC, WMA** → MIDI
+- Powered by **TransKun** transcription engine
+- Auto-converts audio to mono 44.1 kHz
+
+### 🧠 Humanization *(New in v3.4)*
+Make playback sound natural, not robotic:
+- Timing variation
+- Chord rolling
+- Velocity variation
+- Articulation variation
+- Tempo sway
+- Mistake simulation
+- Drift correction
+- Hand simulation
+
+### 🦶 Smart Pedal *(New in v3.4)*
+- **Auto** — Automatic pedal behavior
+- **PedalAI** — AI-assisted pedaling
+- **Harmonic** — Harmonic-based pedaling
+- **Rhythmic** — Rhythm-oriented pedaling
+- **None** — Disable pedal
+
+### 👁️ Visualizer
+- Real-time piano keyboard display
+- Piano-roll timeline
+- Playback position tracking
+
+### 📝 Sheet Music Translator
+- Import and convert sheet music
+- Translate to playable notes
+- Export to supported formats
+
+### 🎨 Customization
+- **English / Vietnamese** interface
+- Custom themes & window opacity
+- Always-on-top mode
+- Mini / collapsed mode
+- Custom global playback hotkey
+
+---
+
+## 📥 Requirements
+
+### Windows
+- Windows 10 or newer (recommended)
+- Python 3.10+
+- Git
+- Internet connection (for first-time setup)
+
+### Linux
+- Python 3.10+
+- Git
+- PyQt6 system libraries
+- `pynput` permissions
+- ⚠️ **Wayland users:** May need additional permissions for keyboard simulation (see [Troubleshooting](#-troubleshooting))
+
+---
+
+## 🚀 Installation
+
+### Windows (Step-by-Step)
+
+#### Step 1 — Install Python & Git
+1. Download and install **Python 3.10+** from [python.org](https://python.org)
+2. **IMPORTANT:** During installation, check ✅ **"Add Python to PATH"**
+3. Download and install **Git** from [git-scm.com](https://git-scm.com)
+4. Verify installation by opening **Command Prompt** or **PowerShell**:
+   ```cmd
+   python --version
+   git --version
+   ```
+
+#### Step 2 — Clone the Repository
+```cmd
 git clone https://github.com/XibeoFlower/Tetomidi-hub.git
 cd Tetomidi-hub
-2. Create a virtual environment
-Windows
+```
+
+#### Step 3 — Create Virtual Environment
+```cmd
 python -m venv venv
-venv\Scripts\activate
-Linux / macOS
+venv\\Scripts\\activate
+```
+
+#### Step 4 — Install Dependencies
+```cmd
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+#### Step 5 — Launch Teto Midi
+```cmd
+python main.py
+```
+
+---
+
+### Linux (Step-by-Step)
+
+#### Step 1 — Install System Dependencies
+
+**Ubuntu / Debian:**
+```bash
+sudo apt update
+sudo apt install python3 python3-pip python3-venv git python3-pyqt6 python3-pynput
+```
+
+**Fedora / RHEL:**
+```bash
+sudo dnf install python3 python3-pip python3-virtualenv git python3-qt6 python3-pynput
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S python python-pip python-virtualenv git python-pyqt6 python-pynput
+```
+
+#### Step 2 — Clone the Repository
+```bash
+git clone https://github.com/XibeoFlower/Tetomidi-hub.git
+cd Tetomidi-hub
+```
+
+#### Step 3 — Create Virtual Environment
+```bash
 python3 -m venv venv
 source venv/bin/activate
-3. Update pip
+```
+
+#### Step 4 — Install Dependencies
+```bash
 python -m pip install --upgrade pip
-4. Install dependencies
 pip install -r requirements.txt
-5. Start Teto Midi
-Windows
-python main.py
-Linux / macOS
+```
+
+#### Step 5 — Launch Teto Midi
+```bash
 python3 main.py
-🚀 First Launch
-After starting the application, you will see the main Teto Midi interface.
-The application contains several main tabs:
-Tab	Description
-Playback	Load and play MIDI files
-Guitar	Guitar mode and fretboard visualization
-Transcriber	Convert audio files into MIDI
-Visualizer	View notes and playback timeline
-Translator	Convert sheet music into playable notes
-Settings	Configure language, hotkeys, theme, and other options
-🎵 MP3 → MIDI Transcription
-The Transcriber allows you to turn an audio recording into a MIDI file.
-Step 1 — Open Transcriber
-Start Teto Midi and open:
-Transcriber
-Step 2 — Select an Audio File
-Choose your audio file.
-For example:
-song.mp3
-Supported formats:
-MP3
-WAV
-FLAC
-M4A
-OGG
-AAC
-WMA
-The application automatically loads the audio and prepares it for transcription.
-Internally, the audio is converted to:
-Mono
-44,100 Hz
-This format is required by the TransKun transcription engine.
-Step 3 — Start Transcription
-Start the transcription process from the Transcriber interface.
-The application analyzes the audio and attempts to detect musical notes and timing.
-Depending on the audio length and your computer, transcription may take some time.
-Step 4 — Wait for Completion
-Do not close the application while transcription is running.
-When the process finishes, Teto Midi generates a MIDI file.
-For example:
-song.mid
-Step 5 — Load the Generated MIDI
-The generated MIDI can be sent directly to the Playback tab.
-Teto Midi automatically loads the transcribed MIDI into Playback after a successful transcription.
-You can then select the tracks and configure playback.
-🎧 Tips for Better MP3 → MIDI Results
-Audio-to-MIDI transcription is an estimation process. Results depend heavily on the source audio.
-For the best results:
-Recommended
-Use high-quality audio
-Use clear instruments
-Prefer isolated melodies
-Use clean recordings
-Avoid excessive background noise
-Avoid heavily distorted audio
-More difficult
-Full songs containing:
-Vocals
-Drums
-Bass
-Multiple instruments
-Heavy effects
-Reverb
-Large chords
-may produce inaccurate notes.
-For complex songs, the generated MIDI may require editing inside a DAW or MIDI editor.
-🎹 Playing a MIDI File
-Step 1 — Open Playback
-Go to:
-Playback
-Step 2 — Load MIDI
-Click:
-Browse...
-Select:
-song.mid
-or:
-song.midi
-Step 3 — Select Tracks
-After loading the MIDI, Teto Midi displays the available tracks.
-Select the tracks you want to play.
-For example:
-☑ Piano
-☐ Bass
-☐ Drums
-☑ Melody
-Confirm your selection.
-Step 4 — Configure Playback
-You can adjust:
-Tempo
-Transpose
-Keyboard layout
-Instrument
-Humanization
-Pedal
-Other playback options
-Step 5 — Start Playback
-Click:
-Play
-Teto Midi will simulate keyboard input based on the MIDI notes.
-The target game or application receives those inputs as keyboard events.
-⌨️ Playback Hotkey
-Teto Midi supports a global playback hotkey.
-The hotkey can be used to:
-Play
-Pause
-Resume
-To change the hotkey:
-Open Settings
-Find the Hotkey option
-Click the hotkey configuration button
-Press the key you want to use
-Save the configuration
-If the global hotkey is unavailable, the normal on-screen Play / Stop controls can still be used.
-🎸 Guitar Mode
-Teto Midi includes a dedicated Guitar mode.
-Step 1
-Open:
-Guitar
-Step 2
-Load a MIDI file.
-Step 3
-Select the desired MIDI tracks.
-Step 4
-Use the guitar fretboard visualizer to see the notes being played.
-Step 5
-Start playback.
-Guitar Mode uses guitar-specific note mapping and disables the 88-key piano layout for guitar playback.
-👁️ Visualizer
-The Visualizer provides a real-time view of MIDI playback.
-It includes:
-Piano Keyboard
-Shows currently active MIDI notes.
-Timeline
-Displays the position of notes throughout the song.
-Playback Position
-The timeline follows the current playback position.
-You can use the timeline to inspect different parts of a MIDI file.
-📝 Translator
-The Translator allows you to work with supported sheet-music formats.
-Typical workflow:
-Sheet Music
-     ↓
-Translator
-     ↓
-Parsed Notes
-     ↓
-MIDI Playback
-Basic Usage
-Open Translator
-Paste or import your sheet music
-Select the appropriate format
-Set the BPM
-Choose whether humanization should be used
-Click Play or export the result
-The translated notes can use the selected keyboard layout and instrument settings.
-🧠 Humanization
-Humanization modifies MIDI playback so that every note does not behave in exactly the same way.
-Depending on the selected options, Teto Midi can introduce:
-Timing variation
-Velocity variation
-Chord roll
-Articulation variation
-Tempo sway
-Small playing mistakes
-Drift correction
-Simulated hand behavior
-When should I use Humanization?
-Use it when you want playback to feel less mechanically perfect.
-For highly accurate timing, disable humanization.
-For a more natural performance, enable the features you need.
-🦶 Smart Pedal
-Teto Midi provides several pedal modes.
-Mode	Description
-Auto	Automatically handles pedal behavior
-PedalAI	AI-assisted pedal behavior
-Harmonic	Harmonic-based pedal behavior
-Rhythmic	Rhythm-oriented pedal behavior
-None	Disable pedal simulation
-If you are unsure which mode to use, start with:
-Auto
-⚙️ Settings
-The Settings tab contains application-wide configuration.
-Available options include:
-Language
-Supported languages:
-English
-Vietnamese
-After changing the language, restart the application to fully apply the new language.
-Always on Top
-Keeps Teto Midi above other windows.
-Useful when playing a game while monitoring the MIDI visualizer.
-Opacity
-Change the transparency of the application window.
-Theme
-Change the application's visual theme.
-Save Directory
-Choose where Teto Midi stores saved performance data.
-Hotkey
-Configure the global playback hotkey.
-Update
-Use:
-Check for updates
-to manually check for a newer version.
-💾 Saving Humanized Performances
-Teto Midi can save humanized performance data.
-This allows you to reuse a customized performance without rebuilding the same humanization settings every time.
-To load a saved performance:
-Open Playback
-Choose the saved-performance loading option
-Select your saved file
-Start playback
-🔄 Updating Teto Midi
-If you installed Teto Midi from source:
-cd Tetomidi-hub
-git pull
-Activate your virtual environment:
-Windows
-venv\Scripts\activate
-Linux / macOS
-source venv/bin/activate
-Then update dependencies:
-pip install -r requirements.txt
-You can also use the application's built-in:
-Check for updates
-option.
-🏗️ Building a Standalone Application
-Teto Midi includes build scripts for creating standalone builds.
-Linux
+```
+
+---
+
+## 🎮 Roblox Setup Guide
+
+To use Teto Midi with **Roblox virtual piano/guitar games**, follow this setup:
+
+### 1. Prepare Roblox
+- Open **Roblox** and join a virtual piano/guitar game
+- Make sure your character is seated at the instrument
+- Ensure the game window is **focused** (click inside the game)
+
+### 2. Configure Teto Midi
+- Launch **Teto Midi**
+- Go to **Settings** tab
+- Set your preferred **keyboard layout** (61-key or 88-key)
+- Configure **Language** (English/Vietnamese)
+- Set **Always on Top** if you want to see Teto Midi while playing
+
+### 3. Load Your Music
+- Go to **Playback** tab
+- Click **Browse...** and select your `.mid` file
+- **OR** use the **Transcriber** to convert an MP3 to MIDI (see below)
+
+### 4. Select Tracks
+- After loading MIDI, check the tracks you want to play
+- Example: ✅ Piano + Melody, ⬜ Bass + Drums
+
+### 5. Configure Playback (Optional but Recommended)
+- Adjust **Tempo** if the song is too fast/slow
+- Set **Transpose** if needed
+- Enable **Humanization** for natural sound
+- Choose **Smart Pedal** mode (recommended: `Auto`)
+
+### 6. Start Playing
+- Click inside the **Roblox game window** to focus it
+- Press your **Global Hotkey** (default can be set in Settings)
+- **OR** click the **Play** button in Teto Midi
+- Teto Midi will automatically send keyboard inputs to Roblox!
+
+### 💡 Pro Tips for Roblox
+- Use **Mini Mode** to keep Teto Midi small and non-intrusive
+- Set **Window Opacity** to see through Teto Midi while watching the game
+- Use **Visualizer** to see exactly which notes are being played
+- Enable **Always on Top** so Teto Midi stays visible over Roblox
+
+---
+
+## 📖 Usage
+
+### Playing MIDI Files
+
+1. Open **Playback** tab
+2. Click **Browse...** and select a `.mid` or `.midi` file
+3. Select the tracks you want to play (e.g., Piano, Melody)
+4. Adjust **Tempo**, **Transpose**, **Layout** as needed
+5. Click **Play**
+
+### MP3 → MIDI Transcription
+
+1. Open **Transcriber** tab
+2. Click **Select Audio File** and choose your audio (MP3/WAV/FLAC/M4A/OGG/AAC/WMA)
+3. The app auto-converts audio to **mono 44.1 kHz** for the TransKun engine
+4. Click **Start Transcription**
+5. Wait for processing (depends on audio length)
+6. The generated MIDI auto-loads into **Playback** tab
+7. Select tracks and play!
+
+**Tips for best transcription results:**
+- Use **high-quality, clean audio**
+- Prefer **isolated melodies** (single instrument)
+- Avoid: vocals, drums, heavy reverb, distortion
+- Complex songs may need editing in a DAW after transcription
+
+### Guitar Mode
+
+1. Open **Guitar** tab
+2. Load a MIDI file
+3. Select desired tracks
+4. View the **fretboard visualizer**
+5. Click **Play** — uses guitar-specific note mapping
+
+### Humanization
+
+1. In **Playback** tab, enable **Humanization**
+2. Choose features:
+   - **Timing Variation** — slight timing offsets
+   - **Velocity Variation** — dynamic loudness changes
+   - **Chord Roll** — realistic chord strumming
+   - **Tempo Sway** — natural tempo fluctuations
+   - **Mistake Simulation** — occasional small errors
+   - **Hand Simulation** — realistic hand movement behavior
+3. Click **Play** — each performance will be unique!
+
+### Smart Pedal
+
+1. In **Playback** tab, select **Pedal Mode**:
+   - `Auto` — Best for beginners (recommended)
+   - `PedalAI` — AI-powered pedaling
+   - `Harmonic` — Based on harmonic structure
+   - `Rhythmic` — Follows rhythm patterns
+   - `None` — No pedal
+
+### Visualizer
+
+- Open **Visualizer** tab to see:
+  - **Piano Keyboard** — active notes light up
+  - **Timeline** — full song overview
+  - **Playback Position** — follows current progress
+
+### Sheet Music Translator
+
+1. Open **Translator** tab
+2. Paste or import sheet music
+3. Select the appropriate format
+4. Set **BPM**
+5. Choose **Humanization** (optional)
+6. Click **Play** or **Export**
+
+### Global Hotkey
+
+1. Go to **Settings** → **Hotkey**
+2. Click the hotkey configuration button
+3. Press your desired key (e.g., `F8`, `Insert`)
+4. Save
+5. Use this key anywhere (even in Roblox) to **Play/Pause/Resume**
+
+---
+
+## 🏗️ Building Standalone Application
+
+### Linux
+```bash
 chmod +x build_linux.sh
 ./build_linux.sh
-The generated application should appear under:
-dist/TetoMidi
-Run it with:
+```
+Run the built app:
+```bash
 ./dist/TetoMidi
-Windows
-The repository also contains:
+```
+
+### Windows
+```cmd
 build_windows.bat
-Run the batch file from a Windows environment to build the application.
-🐧 Linux Troubleshooting
-Keyboard input does not work
-Teto Midi uses pynput to simulate keyboard input.
-Some Linux environments restrict keyboard injection, especially Wayland sessions.
-Ubuntu / Debian
-Try:
-sudo apt install python3-pynput
-Fedora / RHEL
-Try:
-sudo dnf install python3-pynput
-If keyboard input still does not work, try using an X11 session instead of Wayland.
-❌ MP3 Cannot Be Loaded
-Make sure your file uses one of the supported extensions:
-.mp3
-.wav
-.flac
-.m4a
-.ogg
-.aac
-.wma
-If the file is corrupted or uses an unusual codec, convert it to WAV or MP3 and try again.
-❌ Transcription Fails
-If audio transcription fails:
-Make sure the audio file can be played normally.
-Try a shorter audio file.
-Try converting the file to WAV.
-Make sure all Python dependencies are installed.
-Restart Teto Midi.
-Check the application's log output for the actual error.
-❌ MIDI Sounds Wrong
-Audio-to-MIDI conversion cannot perfectly reproduce every recording.
-Possible causes include:
-Multiple instruments playing simultaneously
-Background noise
-Reverb
-Distortion
-Complex chords
-Unclear note attacks
-Drums or percussion
-Poor audio quality
-Try using a cleaner or more isolated recording.
-📁 Project Structure
-Tetomidi-hub/
-│
-├── .github/
-│   └── workflows/
-│
-├── backup/
-│
-├── controllers/
-│
-├── core/
-│
-├── managers/
-│
-├── transcriber/
-│   ├── audio_loader.py
-│   ├── spectral_engine.py
-│   └── transkun_engine.py
-│
-├── ui/
-│
-├── main.py
-├── requirements.txt
-├── build_linux.sh
-├── build_windows.bat
-├── ruff.toml
-│
-├── icon.ico
-├── icon.icns
-└── teto-midi-logo.svg
-The Transcriber subsystem is separated into audio loading, spectral processing, and TransKun engine components.
-📦 Main Dependencies
-The project uses several Python libraries, including:
-PyQt6
-mido
-numpy
-pynput
-The audio transcription subsystem additionally uses audio-processing dependencies such as librosa and soundfile.
-🔗 Workflow Overview
-A typical MP3-to-MIDI workflow looks like this:
-┌──────────────┐
-│   Audio File │
-│ MP3 / WAV... │
-└──────┬───────┘
-       │
-       ▼
-┌────────────────┐
-│    Transcriber │
-└──────┬─────────┘
-       │
-       ▼
-┌────────────────┐
-│ Audio Analysis │
-└──────┬─────────┘
-       │
-       ▼
-┌────────────────┐
-│ MIDI Generation│
-└──────┬─────────┘
-       │
-       ▼
-┌────────────────┐
-│    Playback    │
-└──────┬─────────┘
-       │
-       ▼
-┌────────────────┐
-│ Keyboard Input │
-└────────────────┘
-The current application also bridges a successfully transcribed MIDI file directly into the Playback interface.
-🎯 Recommended Workflow
-For a normal song:
-1. Start Teto Midi
-2. Open Transcriber
-3. Select your MP3
-4. Run transcription
-5. Wait for the MIDI to be generated
-6. Open / continue to Playback
-7. Select MIDI tracks
-8. Adjust tempo
-9. Configure humanization if needed
-10. Configure pedal
-11. Press Play
-For a MIDI file you already have:
-1. Open Playback
-2. Browse for the MIDI file
-3. Select tracks
-4. Configure playback
-5. Press Play
-For guitar:
-1. Open Guitar
-2. Load MIDI
-3. Select tracks
-4. Check the fretboard
-5. Start playback
-⚠️ Important Notes
-Teto Midi simulates keyboard input. The behavior of simulated keyboard input depends on the operating system and the target application.
-Some games and applications may block or restrict synthetic keyboard input.
-Use Teto Midi responsibly and follow the rules of the software or game you are using.
-Audio-to-MIDI transcription is not guaranteed to be 100% accurate. Always review generated MIDI data when accuracy is important.
-🛠️ Development
-Clone the repository:
-git clone https://github.com/XibeoFlower/Tetomidi-hub.git
+```
+The executable will be in `dist/` folder.
+
+---
+
+## 🔄 Updating
+
+```bash
 cd Tetomidi-hub
-Create the environment:
-python -m venv venv
-Activate it and install dependencies:
+git pull
+```
+Then reactivate your virtual environment and update dependencies:
+
+**Windows:**
+```cmd
+venv\\Scripts\\activate
 pip install -r requirements.txt
-Run:
-python main.py
-🤝 Contributing
-Contributions are welcome.
-If you find a bug or have an idea:
-Open an Issue
-Describe the problem clearly
-Include your operating system
-Include relevant error messages or logs
-Explain how to reproduce the issue
-Pull requests are also welcome.
-🐛 Bug Reports
-When reporting a bug, please include:
-Operating System:
-Python Version:
-Teto Midi Version:
-Audio/MIDI Format:
-Steps to Reproduce:
-Error Message:
-This makes troubleshooting much easier.
-💬 Support
-For support, open a GitHub Issue or contact:
-Discord: @xiunolove
-📄 License
-Please refer to the repository's license information for the current licensing terms.
-❤️ Credits
-Made with ❤️ by XibeoFlower
-Repository:
-https://github.com/XibeoFlower/Tetomidi-hub
+```
+
+**Linux:**
+```bash
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+You can also use the built-in **Check for updates** button in Settings.
+
+---
+
+## 🔧 Troubleshooting
+
+### Keyboard Input Not Working (Linux)
+- Teto Midi uses `pynput` for keyboard simulation
+- **Wayland** sessions may block synthetic input
+- **Solution:** Switch to **X11** session, or:
+  ```bash
+  # Ubuntu/Debian
+  sudo apt install python3-pynput
+  
+  # Fedora
+  sudo dnf install python3-pynput
+  ```
+
+### MP3 Cannot Be Loaded
+- Ensure file extension is: `.mp3`, `.wav`, `.flac`, `.m4a`, `.ogg`, `.aac`, `.wma`
+- Try converting to WAV if the file is corrupted
+
+### Transcription Fails
+- Verify the audio plays normally in a media player
+- Try a shorter audio file
+- Convert to WAV format first
+- Check the terminal/log output for specific errors
+
+### MIDI Sounds Wrong in Roblox
+- Audio-to-MIDI is an estimation, not perfect
+- Complex songs (vocals, drums, multiple instruments) reduce accuracy
+- Try cleaner, isolated recordings
+- Edit the generated MIDI in a DAW if needed
+
+### Roblox Not Receiving Input
+- Make sure **Roblox window is focused** (click inside it)
+- Disable any antivirus that may block keyboard simulation
+- Run Teto Midi as **Administrator** (Windows) if needed
+- Check that your keyboard layout in Teto Midi matches the Roblox game
+
+---
+
+## 📁 Project Structure
+
+```
+Tetomidi-hub/
+├── .github/workflows/      # CI/CD workflows
+├── backup/                 # Backup utilities
+├── controllers/            # Input controllers
+├── core/                   # Core playback engine
+├── managers/               # State & resource managers
+├── transcriber/            # Audio-to-MIDI system
+│   ├── audio_loader.py     # Audio file loading
+│   ├── spectral_engine.py  # Spectral analysis
+│   └── transkun_engine.py  # TransKun AI engine
+├── ui/                     # PyQt6 user interface
+├── main.py                 # Application entry point
+├── requirements.txt        # Python dependencies
+├── build_linux.sh          # Linux build script
+├── build_windows.bat       # Windows build script
+├── ruff.toml               # Code style config
+├── icon.ico / icon.icns    # App icons
+└── teto-midi-logo.svg      # Logo asset
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+**Bug reports:** Please include your OS, Python version, Teto Midi version, and steps to reproduce.
+
+---
+
+## 💬 Support
+
+- **GitHub Issues:** [github.com/XibeoFlower/Tetomidi-hub/issues](https://github.com/XibeoFlower/Tetomidi-hub/issues)
+- **Discord:** `@xiunolove`
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License — see the repository for details.
+
+---
+
+## ❤️ Credits
+
+Made with ❤️ by **XibeoFlower**
+
 If Teto Midi is useful to you, consider giving the project a ⭐ on GitHub!
-⭐ Teto Midi
-Turn audio into MIDI.
-Turn MIDI into keyboard input.
-Play music your way. 🎹
+
+**[⭐ Star this repo](https://github.com/XibeoFlower/Tetomidi-hub)**
+
+---
+
+<div align="center">
+
+**🎹 Turn audio into MIDI. Turn MIDI into keyboard input. Play music your way.**
+
+</div>
+"""
+
+with open('/mnt/agents/output/README.md', 'w', encoding='utf-8') as f:
+    f.write(readme_content)
+
+print("README.md created successfully!")
+print(f"File size: {len(readme_content)} characters")
