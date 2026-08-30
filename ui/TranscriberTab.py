@@ -60,11 +60,22 @@ class TranscriberWorker(QThread):
                 self.finished.emit(True, self.output_mid)
 
             elif self.engine_name == "Spectral Onset":
-                from transcriber.spectral_engine import SpectralEngine
-                engine = SpectralEngine()
+                # FIX #1: class thật sự tên là SpectralOnsetEngine, không phải
+                # SpectralEngine -> import sai tên gây ImportError ngay lập tức.
+                from transcriber.spectral_engine import SpectralOnsetEngine
+                # FIX #2: SpectralOnsetEngine.transcribe() cần numpy array audio
+                # đã load sẵn (44100Hz mono), KHÔNG nhận đường dẫn file string.
+                # audio_loader.load_audio() có sẵn nhưng chưa từng được gọi.
+                from transcriber.audio_loader import load_audio
+
+                self.log.emit("Loading audio file...")
+                self.progress.emit(15)
+                audio_array, _sr = load_audio(self.audio_path)
+
+                engine = SpectralOnsetEngine()
                 self.log.emit("Spectral Onset engine loaded. Transcribing...")
                 self.progress.emit(30)
-                engine.transcribe(self.audio_path, self.output_mid)
+                engine.transcribe(audio_array, self.output_mid)
                 self.log.emit("Spectral transcription complete.")
                 self.progress.emit(100)
                 self.finished.emit(True, self.output_mid)
