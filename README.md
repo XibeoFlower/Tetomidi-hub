@@ -2,7 +2,7 @@
 
 **Teto Midi** (v3.3) — A MIDI player that simulates keyboard input. Optimized for virtual piano/guitar games (especially on Roblox) and similar applications.
 
-![Teto Midi Logo](teto-midi-logo.svg)
+teto-midi-logo-sm.svg
 
 ## ✨ Features
 
