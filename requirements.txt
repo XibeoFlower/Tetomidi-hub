@@ -4,3 +4,10 @@ numpy>=1.26.0
 pynput>=1.7.0
 pyinstaller>=6.10.0
 ruff>=0.4.0
+
+# --- Transcriber dependencies ---
+transkun>=1.0.0
+torch>=2.0.0
+librosa>=0.10.0
+soundfile>=0.12.0
+scipy>=1.11.0
