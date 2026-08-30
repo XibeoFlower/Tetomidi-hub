@@ -75,9 +75,13 @@ class TrackSelectionDialog(QDialog):
         self.table.setRowCount(len(self.tracks))
 
         for row, track in enumerate(self.tracks):
-            # FIX: Cột Play — dùng QCheckBox widget rõ ràng thay vì chỉ dùng Item
+            # FIX (bug crash app): `track` la object MidiTrack (dataclass),
+            # KHONG PHAI dict -> khong co .get(). Truoc day code goi
+            # track.get("play", True) v.v. gay AttributeError ngay khi mo
+            # dialog -> PyQt6 tu dong dong ca app vi exception khong duoc
+            # bat trong 1 slot. Sua lai doc dung attribute cua MidiTrack.
             play_checkbox = QCheckBox()
-            play_checkbox.setChecked(track.get("play", True))
+            play_checkbox.setChecked(True)  # mac dinh tick chon phat
             play_checkbox.setStyleSheet("QCheckBox { margin-left: 15px; }")
             play_widget = QWidget()
             play_layout = QHBoxLayout(play_widget)
@@ -87,22 +91,21 @@ class TrackSelectionDialog(QDialog):
             self.table.setCellWidget(row, 0, play_widget)
 
             # Track Name
-            name_item = QTableWidgetItem(track.get("name", f"Track {row}"))
+            name_item = QTableWidgetItem(track.name or f"Track {row}")
             self.table.setItem(row, 1, name_item)
 
             # Instrument
-            inst_item = QTableWidgetItem(track.get("instrument", "Unknown"))
+            inst_item = QTableWidgetItem(track.instrument_name)
             self.table.setItem(row, 2, inst_item)
 
             # Notes
-            notes_item = QTableWidgetItem(str(track.get("notes", 0)))
+            notes_item = QTableWidgetItem(str(track.note_count))
             notes_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(row, 3, notes_item)
 
             # Hand Assignment
             hand_combo = QComboBox()
             hand_combo.addItems(["Auto-Detect", "Left Hand", "Right Hand", "Both"])
-            hand_combo.setCurrentText(track.get("hand", "Auto-Detect"))
             self.table.setCellWidget(row, 4, hand_combo)
 
     def _select_all(self):
