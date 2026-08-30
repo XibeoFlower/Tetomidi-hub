@@ -29,7 +29,7 @@ class Player(QObject):
         self.notes = notes
         self.sections = sections
         self.tempo_map = tempo_map
-        self.keyboard = Controller()
+        self._keyboard = None
         self.mapper = KeyMapper(
             use_88_key_layout=self.config.get('use_88_key_layout', False),
             instrument=self.config.get('instrument', 'piano'),
@@ -59,7 +59,33 @@ class Player(QObject):
         
         self.debug_log: Optional[List[str]] = [] if self.config.get('debug_mode') else None
         self.current_section_idx = -1
-    
+
+    @property
+    def keyboard(self) -> Controller:
+        """Lazily create the pynput keyboard backend on first actual use.
+
+        Kept lazy so that Player instances used purely to *compile* events
+        (e.g. the Save feature, which never presses a real key) still work
+        even when no keyboard backend is available. The exception below
+        only surfaces once real key-sending is attempted during playback,
+        where it's already caught by _execute_playback()'s try/except and
+        reported via error_occurred instead of crashing the app.
+        """
+        if self._keyboard is None:
+            try:
+                self._keyboard = Controller()
+            except Exception as e:
+                raise RuntimeError(
+                    "Could not initialize the keyboard input backend "
+                    f"({e.__class__.__name__}: {e}).\n\n"
+                    "On Linux this usually means the 'libxtst6' system package is "
+                    "missing, or the app is running under Wayland without an "
+                    "XWayland session.\n"
+                    "Try: sudo apt-get install libxtst6 libx11-6\n"
+                    "and make sure you're running under an X11 (or XWayland) session."
+                ) from e
+        return self._keyboard
+
     def _log_debug(self, msg: str):
         if self.debug_log is not None: 
             self.debug_log.append(msg)
