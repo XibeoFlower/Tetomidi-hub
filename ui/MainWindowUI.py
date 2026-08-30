@@ -13,6 +13,7 @@ from ui.SettingsTab import SettingsTab
 from ui.TranslatorTab import TranslatorTab
 from ui.VisualizerTab import VisualizerTab
 from ui.DebugTab import DebugTab
+from ui.EditMidiTab import EditMidiTab
 from ui.theme import ThemeManager, generate_stylesheet
 from ui.animated_button import AnimatedButton
 from managers.i18n import I18nManager
@@ -173,6 +174,7 @@ class MainWindowUI(QObject):
             ("\uE83E", I18nManager.t("nav_guitar")),   # Guitar icon
             ("\uE713", I18nManager.t("nav_settings")),
             ("\uEBE8", I18nManager.t("nav_debug")),
+            ("\uE70F", I18nManager.t("nav_edit_midi")),  # Edit MIDI (NEW)
         ]
         self._nav_btns: list[NavButton] = []
         for i, (icon, label) in enumerate(_NAV_ITEMS):
@@ -216,6 +218,7 @@ class MainWindowUI(QObject):
         self.guitar_tab     = GuitarTab()      # NEW
         self.settings_tab   = SettingsTab()
         self.debug_tab      = DebugTab()
+        self.edit_midi_tab  = EditMidiTab()    # NEW
 
         self.tabs.addWidget(self.playback_tab)    # 0
         self.tabs.addWidget(self.visualizer_tab)  # 1
@@ -223,6 +226,7 @@ class MainWindowUI(QObject):
         self.tabs.addWidget(self.guitar_tab)      # 3  NEW
         self.tabs.addWidget(self.settings_tab)    # 4
         self.tabs.addWidget(self.debug_tab)       # 5
+        self.tabs.addWidget(self.edit_midi_tab)   # 6  NEW
 
         # ── Convenience aliases ────────────────────────────────────────
         self.log_output      = self.debug_tab.log_output
