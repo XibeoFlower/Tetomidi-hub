@@ -1,13 +1,26 @@
-PyQt6>=6.7.0
-mido>=1.3.0
-numpy>=1.26.0
-pynput>=1.7.0
-pyinstaller>=6.10.0
-ruff>=0.4.0
+# TetoMidi Hub - Python Dependencies
+# NOTE: pyinstaller is a build tool, not a runtime dependency.
+# Install it separately: pip install pyinstaller
 
-# --- Transcriber dependencies ---
+# --- Audio / MIDI ---
+mido>=1.3.0
+python-rtmidi>=1.5.8
+sounddevice>=0.4.6
+soundfile>=0.12.1
+librosa>=0.10.1
+
+# --- ML / Transcription ---
 transkun>=1.0.0
 torch>=2.0.0
-librosa>=0.10.0
-soundfile>=0.12.0
-scipy>=1.11.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# --- GUI ---
+PyQt6>=6.6.0
+
+# --- Input / Automation ---
+pynput>=1.7.6
+
+# --- Utilities ---
+requests>=2.31.0
+packaging>=23.0
