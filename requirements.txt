@@ -10,7 +10,7 @@ soundfile>=0.12.1
 librosa>=0.10.1
 
 # --- ML / Transcription ---
-transkun>=1.0.0
+piano_transcription_inference>=0.0.6  # ByteDance model
 torch>=2.0.0
 numpy>=1.24.0
 scipy>=1.10.0
