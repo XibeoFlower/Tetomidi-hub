@@ -14,14 +14,13 @@ from ui.TranslatorTab import TranslatorTab
 from ui.VisualizerTab import VisualizerTab
 from ui.DebugTab import DebugTab
 from ui.EditMidiTab import EditMidiTab
+from ui.TranscriberTab import TranscriberTab
 from ui.theme import ThemeManager, generate_stylesheet
 from ui.animated_button import AnimatedButton
 from managers.i18n import I18nManager
 
 
 def _resource_path(*relative_parts: str) -> str:
-    """Resolve a bundled asset path that works both when running from source
-    and when frozen into a PyInstaller onefile build."""
     if getattr(sys, 'frozen', False):
         base_path = sys._MEIPASS
     else:
@@ -30,7 +29,6 @@ def _resource_path(*relative_parts: str) -> str:
 
 
 def _make_mdl2_icon(glyph: str, color: QColor, pixel_size: int = 14) -> QIcon:
-    """Render a Segoe MDL2 Assets glyph into a QIcon at the given pixel size."""
     pix = QPixmap(pixel_size, pixel_size)
     pix.fill(Qt.GlobalColor.transparent)
     p = QPainter(pix)
@@ -44,7 +42,6 @@ def _make_mdl2_icon(glyph: str, color: QColor, pixel_size: int = 14) -> QIcon:
 
 
 class ElidingLabel(QLabel):
-    """QLabel that truncates text with '...' when it doesn't fit."""
     def __init__(self, text="", parent=None):
         super().__init__(parent)
         self._full_text = text
@@ -94,27 +91,24 @@ class MainWindowUI(QObject):
         cs_layout.setContentsMargins(12, 6, 12, 6)
         cs_layout.setSpacing(4)
 
-        # Row 1: filename
         self._collapsed_file_label = ElidingLabel(I18nManager.t("no_file_selected"))
         self._collapsed_file_label.setObjectName("file_path_label")
         cs_layout.addWidget(self._collapsed_file_label)
 
-        # Row 2: humanize checkbox
         self._collapsed_humanize_check = QCheckBox(I18nManager.t("humanization"))
         self._collapsed_humanize_check.setToolTip(I18nManager.t("tt_humanize_all"))
         cs_layout.addWidget(self._collapsed_humanize_check)
 
-        # Row 3: load buttons (icons set in apply_theme)
         self._collapsed_load_btn = AnimatedButton("")
         self._collapsed_load_btn.setObjectName("cs_load_btn")
         self._collapsed_load_btn.setIconSize(QSize(16, 16))
         self._collapsed_load_btn.setToolTip(I18nManager.t("tt_browse"))
+
         self._collapsed_load_saved_btn = AnimatedButton("")
         self._collapsed_load_saved_btn.setObjectName("cs_load_saved_btn")
         self._collapsed_load_saved_btn.setIconSize(QSize(16, 16))
         self._collapsed_load_saved_btn.setToolTip(I18nManager.t("tt_load_save"))
 
-        # Keep alive for signal wiring / _set_save_enabled — not shown in layout
         self._collapsed_save_btn = AnimatedButton("\uE74E")
         self._collapsed_save_btn.setObjectName("cs_save_btn")
         self._collapsed_save_btn.setToolTip(I18nManager.t("tt_save_transport"))
@@ -126,7 +120,6 @@ class MainWindowUI(QObject):
         cs_row3.addWidget(self._collapsed_load_saved_btn, 1)
         cs_layout.addLayout(cs_row3)
 
-        # Rows 4-6 receive reparented transport widgets on collapse
         self._cs_scrubber_row = QWidget()
         self._cs_scrubber_layout = QVBoxLayout(self._cs_scrubber_row)
         self._cs_scrubber_layout.setContentsMargins(0, 0, 0, 0)
@@ -157,9 +150,7 @@ class MainWindowUI(QObject):
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
         sidebar.setFixedWidth(120)
-        sidebar.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
-        )
+        sidebar.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         sidebar_vbox = QVBoxLayout(sidebar)
         sidebar_vbox.setContentsMargins(0, 0, 0, 0)
         sidebar_vbox.setSpacing(0)
@@ -171,10 +162,11 @@ class MainWindowUI(QObject):
             ("\uE768", I18nManager.t("nav_playback")),
             ("\uE8D6", I18nManager.t("nav_visualizer")),
             ("\uE8B1", I18nManager.t("nav_translator")),
-            ("\uE83E", I18nManager.t("nav_guitar")),   # Guitar icon
+            ("\uE83E", I18nManager.t("nav_guitar")),
+            ("\uE95F", "Transcriber"),
             ("\uE713", I18nManager.t("nav_settings")),
             ("\uEBE8", I18nManager.t("nav_debug")),
-            ("\uE70F", I18nManager.t("nav_edit_midi")),  # Edit MIDI (NEW)
+            ("\uE70F", I18nManager.t("nav_edit_midi")),
         ]
         self._nav_btns: list[NavButton] = []
         for i, (icon, label) in enumerate(_NAV_ITEMS):
@@ -212,21 +204,23 @@ class MainWindowUI(QObject):
         main_layout.addWidget(self._body, 1)
 
         # ── Pages ──────────────────────────────────────────────────────
-        self.playback_tab   = PlaybackTab()
-        self.visualizer_tab = VisualizerTab()
-        self.translator_tab = TranslatorTab()
-        self.guitar_tab     = GuitarTab()      # NEW
-        self.settings_tab   = SettingsTab()
-        self.debug_tab      = DebugTab()
-        self.edit_midi_tab  = EditMidiTab()    # NEW
+        self.playback_tab    = PlaybackTab()
+        self.visualizer_tab  = VisualizerTab()
+        self.translator_tab  = TranslatorTab()
+        self.guitar_tab      = GuitarTab()
+        self.transcriber_tab = TranscriberTab()
+        self.settings_tab    = SettingsTab()
+        self.debug_tab       = DebugTab()
+        self.edit_midi_tab   = EditMidiTab()
 
-        self.tabs.addWidget(self.playback_tab)    # 0
-        self.tabs.addWidget(self.visualizer_tab)  # 1
-        self.tabs.addWidget(self.translator_tab)  # 2
-        self.tabs.addWidget(self.guitar_tab)      # 3  NEW
-        self.tabs.addWidget(self.settings_tab)    # 4
-        self.tabs.addWidget(self.debug_tab)       # 5
-        self.tabs.addWidget(self.edit_midi_tab)   # 6  NEW
+        self.tabs.addWidget(self.playback_tab)     # 0
+        self.tabs.addWidget(self.visualizer_tab)   # 1
+        self.tabs.addWidget(self.translator_tab)   # 2
+        self.tabs.addWidget(self.guitar_tab)       # 3
+        self.tabs.addWidget(self.transcriber_tab)  # 4  NEW
+        self.tabs.addWidget(self.settings_tab)     # 5
+        self.tabs.addWidget(self.debug_tab)        # 6
+        self.tabs.addWidget(self.edit_midi_tab)    # 7
 
         # ── Convenience aliases ────────────────────────────────────────
         self.log_output      = self.debug_tab.log_output
@@ -358,7 +352,6 @@ class MainWindowUI(QObject):
         piano_pedal_q = QColor(theme.pedal_color)
         self.piano_widget.pedal_color = piano_pedal_q
         self.piano_widget.update()
-        # Update fretboard colors
         self.guitar_tab.fretboard.bg_color.setNamedColor(theme.bg_primary)
         self.guitar_tab.fretboard.fret_color.setNamedColor(theme.border)
         self.guitar_tab.fretboard.string_color.setNamedColor(theme.text_secondary)
@@ -455,13 +448,10 @@ class MainWindowUI(QObject):
             self.collapse_btn.setProperty("strip_mode", True)
             self.collapse_btn.style().unpolish(self.collapse_btn)
             self.collapse_btn.style().polish(self.collapse_btn)
-            # Row 4: scrubber then time label stacked vertically
             self._cs_scrubber_layout.addWidget(self.scrubber_slider)
             self._cs_scrubber_layout.addWidget(self.time_label)
-            # Row 5: play + stop equal width
             self._cs_playback_layout.addWidget(self.play_button, 1)
             self._cs_playback_layout.addWidget(self.stop_button, 1)
-            # Row 6: expand button full width
             self._cs_expand_layout.addWidget(self.collapse_btn)
             for btn, glyph in [
                 (self.play_button, "\uE768"),
@@ -488,7 +478,6 @@ class MainWindowUI(QObject):
             self.collapse_btn.setProperty("strip_mode", False)
             self.collapse_btn.style().unpolish(self.collapse_btn)
             self.collapse_btn.style().polish(self.collapse_btn)
-            # Restore all reparented widgets back into the transport bar
             self._transport_layout.insertWidget(0, self.scrubber_slider)
             btn_row_layout = self._btn_row_widget.layout()
             btn_row_layout.insertWidget(0, self.play_button)
