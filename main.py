@@ -119,6 +119,9 @@ class MainWindow(QMainWindow):
         self.ui.translator_tab.play_sheet_requested.connect(self._on_play_sheet)
         self.ui.translator_tab.export_requested.connect(self._on_export_sheet)
 
+        # Edit MIDI tab (NEW)
+        self.ui.edit_midi_tab.test_requested.connect(self._on_edit_midi_test)
+
         # Timeline logic bridging
         self.ui.timeline_widget.seek_requested.connect(self._on_timeline_seek)
         self.ui.timeline_widget.scrub_position_changed.connect(self._on_visual_scrub)
@@ -527,6 +530,37 @@ class MainWindow(QMainWindow):
             f"{I18nManager.t('status_exported')}: {format_name} ({len(text.splitlines())} lines)"
         )
 
+    # --- Edit MIDI tab (NEW) ---
+    def _on_edit_midi_test(self, notes: list, bpm: float):
+        """Send the piano-roll's current notes straight into the normal
+        playback/keystroke pipeline, so the user can test what they just
+        drew/edited without exporting a file first."""
+        if self.playback_controller.is_playing() or self.playback_controller.is_paused():
+            QMessageBox.warning(
+                self, I18nManager.t("msg_no_tracks"),
+                "Please stop the current playback before testing the edited MIDI."
+            )
+            return
+        if not notes:
+            QMessageBox.warning(self, I18nManager.t("msg_no_notes"), I18nManager.t("msg_no_notes"))
+            return
+
+        tempo_us = int(60_000_000 / max(1.0, bpm))
+        tempo_map = TempoMap([(0, tempo_us)], [])
+        config = self.ui.gather_playback_config()
+
+        self.loaded_save_data = None
+        self.ui.log_output.append(
+            f"Testing edited MIDI: {len(notes)} note(s) at {bpm} BPM"
+        )
+        self.playback_controller.play_from_notes(config, notes, tempo_map)
+        self.ui.set_controls_enabled(False)
+        self.ui.play_button.setEnabled(True)
+        self.ui.stop_button.setEnabled(True)
+        self.ui.scrubber_slider.setEnabled(True)
+        self._sync_play_button()
+        self.ui.tabs.setCurrentIndex(0)
+
     def show_error_dialog(self, error_message: str):
         self.ui.log_output.append(I18nManager.t("msg_error_playback"))
         QMessageBox.critical(self, I18nManager.t("msg_hardware_error"), error_message)
@@ -637,6 +671,7 @@ class MainWindow(QMainWindow):
         self._update_checker.quit()
         self._save_config()
         self.playback_controller.shutdown()
+        self.ui.edit_midi_tab.shutdown()
         event.accept()
 
 if __name__ == "__main__":
