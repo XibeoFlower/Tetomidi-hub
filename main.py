@@ -84,7 +84,7 @@ class MainWindow(QMainWindow):
         self.ui.guitar_tab.stop_button.clicked.connect(self.handle_stop)
 
         # ── TranscriberTab bindings (NEW) ──────────────────────────────
-        self.ui.transcriber_tab.load_midi_requested.connect(self._on_transcribed_midi_load)
+        self.ui.transcriber_tab.load_into_playback.connect(self._on_transcribed_midi_load)
 
         self.ui.settings_tab.save_browse_btn.clicked.connect(self._browse_save_dir)
         self.ui._collapsed_load_btn.clicked.connect(self.select_file)
