@@ -52,6 +52,12 @@ pyinstaller --noconfirm --onefile --clean \
     --hidden-import torch \
     --hidden-import transkun \
     --hidden-import transkun.transcribe \
+    --hidden-import pkg_resources \
+    --hidden-import pkg_resources.py2_warn \
+    --collect-submodules pkg_resources \
+    --collect-data setuptools \
+    --copy-metadata transkun \
+    --copy-metadata setuptools \
     --collect-submodules PyQt6 \
     --collect-submodules mido \
     main.py
