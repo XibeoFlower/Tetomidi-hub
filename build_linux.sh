@@ -5,38 +5,44 @@ echo "============================================"
 echo "  TetoMidi - Build Linux (binary)"
 echo "============================================"
 
-# --- Kiem tra Python ---
+# --- Check Python ---
 if ! command -v python3 &> /dev/null; then
-    echo "[LOI] Khong tim thay python3. Hay cai Python 3.10+ truoc."
+    echo "[ERROR] python3 not found. Install Python 3.10+ first."
     exit 1
 fi
 
-# --- Tao virtual environment neu chua co ---
+# --- Create virtual environment if missing ---
 if [ ! -d "venv" ]; then
-    echo "Dang tao virtual environment..."
+    echo "Creating virtual environment..."
     python3 -m venv venv
 fi
 
 source venv/bin/activate
 
-echo "Dang cai dependencies..."
+echo "Installing dependencies..."
 pip install --upgrade pip
 pip install -r requirements.txt
 pip install pyinstaller
 
-echo "Dang don dep build cu..."
+echo "Cleaning previous build..."
 rm -rf build dist TetoMidi.spec
 
-echo "Dang build binary..."
+echo "Building binary..."
 pyinstaller --noconfirm --onefile \
     --name TetoMidi \
     --add-data "icon.ico:." \
     --add-data "discord_avatar.png:." \
+    --add-data "teto-midi-logo.svg:." \
+    --hidden-import PyQt6.QtMultimedia \
+    --hidden-import PyQt6.QtCore \
+    --hidden-import PyQt6.QtGui \
+    --hidden-import PyQt6.QtWidgets \
+    --collect-submodules PyQt6 \
     main.py
 
 chmod +x dist/TetoMidi
 
 echo "============================================"
-echo "  Build xong! File nam o: dist/TetoMidi"
-echo "  Chay bang: ./dist/TetoMidi"
+echo "  Build done! Binary: dist/TetoMidi"
+echo "  Run with: ./dist/TetoMidi"
 echo "============================================"
