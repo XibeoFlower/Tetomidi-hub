@@ -136,20 +136,17 @@ class _SaveWorker(QObject):
 
 
 class PlaybackController(QObject):
-    # Signals to communicate back to the GUI
     status_updated = Signal(str)
     progress_updated = Signal(float)
     playback_finished = Signal()
     visualizer_updated = Signal(list)
     auto_paused = Signal()
     error_occurred = Signal(str)
-    
-    pedal_updated = Signal(bool)          # Bridged from Player: True=down, False=up
-    # Custom signals for specific orchestration events
-    timeline_data_ready = Signal(list, float, object) # notes, total_duration, tempo_map
-    pedal_data_ready = Signal(list)       # List of (start_sec, end_sec) pedal intervals
-    save_successful = Signal(str, str) # filepath, success message
-    save_failed = Signal(str) # error message
+    pedal_updated = Signal(bool)
+    timeline_data_ready = Signal(list, float, object)
+    pedal_data_ready = Signal(list)
+    save_successful = Signal(str, str)
+    save_failed = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -211,7 +208,21 @@ class PlaybackController(QObject):
         self._save_worker = None
         self._save_thread = None
 
+    def _cleanup_old_thread(self):
+        """FIX: Đảm bảo thread cũ đã dừng hoàn toàn trước khi tạo thread mới."""
+        if self.player_thread is not None:
+            if self.player:
+                self.player.stop()
+            self.player_thread.quit()
+            if not self.player_thread.wait(2000):
+                self.player_thread.terminate()
+                self.player_thread.wait(1000)
+            self.player_thread = None
+            self.player = None
+
     def play(self, config: Dict, selected_tracks_info: List):
+        self._cleanup_old_thread()
+
         self.status_updated.emit("Preparing playback...")
 
         debug_log = self.status_updated.emit if config.get('debug_mode') else None
@@ -235,13 +246,29 @@ class PlaybackController(QObject):
             self.error_occurred.emit(f"Error preparing playback:\n{e}")
             return
 
+        # FIX: Kiểm tra nếu không có note nào sau khi parse
+        if not final_notes:
+            self.error_occurred.emit(
+                "No playable notes found in the selected tracks.\n\n"
+                "Possible causes:\n"
+                "• The MIDI file only contains notes outside the instrument's pitch range.\n"
+                "• The selected tracks are empty or contain only non-note events.\n"
+                "• Try selecting different tracks or adjusting the Transpose setting."
+            )
+            return
+
         self.status_updated.emit("Analyzing musical structure...")
         analyzer = SectionAnalyzer(final_notes, tempo_map, debug_log=debug_log)
         sections = analyzer.analyze()
 
         total_dur = max(n.end_time for n in final_notes) if final_notes else 1.0
 
-        # Pass the processed timeline metrics back to the GUI
+        if total_dur <= 0:
+            self.error_occurred.emit(
+                "Playback duration is zero. The MIDI file may be corrupted or empty."
+            )
+            return
+
         self.timeline_data_ready.emit(final_notes, total_dur, tempo_map)
 
         try:
@@ -260,7 +287,6 @@ class PlaybackController(QObject):
 
         self.player_thread.started.connect(self.player.play)
 
-        # Bridge Player signals through the Orchestrator
         self.player.playback_finished.connect(self._on_playback_finished)
         self.player.status_updated.connect(self.status_updated.emit)
         self.player.progress_updated.connect(self.progress_updated.emit)
@@ -272,13 +298,14 @@ class PlaybackController(QObject):
         self.player_thread.start()
 
     def play_from_notes(self, config: Dict, notes: List[Note], tempo_map: TempoMap):
-        """Start playback from pre-built Note objects, bypassing MIDI file parsing.
+        self._cleanup_old_thread()
 
-        Used by the Translator tab to play imported sheet text directly through
-        the normal humanization and playback pipeline.
-        """
         self.status_updated.emit("Preparing playback from imported sheet...")
         debug_log = self.status_updated.emit if config.get('debug_mode') else None
+
+        if not notes:
+            self.error_occurred.emit("No notes to play. The imported sheet may be empty.")
+            return
 
         if config.get('simulate_hands'):
             assign_hands(notes)
@@ -319,9 +346,15 @@ class PlaybackController(QObject):
         self.player_thread.start()
 
     def play_from_save(self, loaded_save_data: Dict):
+        self._cleanup_old_thread()
+
         self.status_updated.emit("Initializing playback from pre-compiled serialization...")
         config = loaded_save_data.get('metadata', {}).get('playback_settings', {})
         events_data = loaded_save_data.get('compiled_events', [])
+
+        if not events_data:
+            self.error_occurred.emit("Saved file contains no playback events.")
+            return
 
         debug_log = self.status_updated.emit if config.get('debug_mode') else None
         if debug_log:
@@ -340,7 +373,6 @@ class PlaybackController(QObject):
         
         for ev in events_data:
             pitch_val = ev.get('pitch')
-            # Strictly typecast properties to prevent silent pynput failure
             if pitch_val is not None:
                 pitch_val = int(pitch_val)
                 
@@ -352,14 +384,12 @@ class PlaybackController(QObject):
                 pitch=pitch_val
             ))
             
-            # Reconstruct basic note bounds for visualizer tracking.
             if ev['action'] == 'press' and pitch_val is not None:
                 active_presses[pitch_val] = float(ev['time'])
             elif ev['action'] == 'release' and pitch_val is not None:
                 if pitch_val in active_presses:
                     start = active_presses.pop(pitch_val)
                     dur = max(0.01, float(ev['time']) - start)
-                    # Assign a basic hand based on pitch threshold so visualizer isn't gray
                     hand = 'left' if pitch_val < 60 else 'right'
                     
                     reconstructed_notes.append(Note(
@@ -370,7 +400,6 @@ class PlaybackController(QObject):
                     
         reconstructed_notes = sorted(reconstructed_notes, key=lambda n: n.start_time)
 
-        # Enforce chronological ordering on the compiled execution events to prevent instant loop exiting
         reconstructed_events.sort(key=lambda x: (x.time, x.priority))
 
         total_dur = reconstructed_events[-1].time if reconstructed_events else 1.0
