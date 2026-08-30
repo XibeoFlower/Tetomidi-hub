@@ -4,7 +4,7 @@ import os
 
 # ═══════════════════════════════════════════════════════════════
 # FIX 1: Monkey-patch pkg_resources trước khi bất kỳ thư viện nào import nó
-# Python 3.12+ không cài setuptools sẵn trong venv. transkun/torch vẫn cần
+# Python 3.12+ không cài setuptools sẵn trong venv. Một số thư viện ML vẫn cần
 # pkg_resources. Tạo một shim module tối thiểu để tránh crash.
 # ═══════════════════════════════════════════════════════════════
 try:
