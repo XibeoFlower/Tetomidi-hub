@@ -7,7 +7,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QFileDialog, QProgressBar, QTextEdit, QComboBox, QGroupBox,
-    QCheckBox, QMessageBox, QSpinBox, QDoubleSpinBox
+    QCheckBox, QMessageBox, QDoubleSpinBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
@@ -15,9 +15,6 @@ from managers.i18n import I18nManager
 
 
 class TranscriptionWorker(QThread):
-    """
-    Worker thread để transcription không block UI chính.
-    """
     progress = pyqtSignal(int)
     log = pyqtSignal(str)
     finished = pyqtSignal(bool, dict)
@@ -38,7 +35,6 @@ class TranscriptionWorker(QThread):
             self.log.emit(f"🎵 Loading audio: {Path(self.audio_path).name}")
             self.progress.emit(5)
 
-            # Load audio (librosa)
             from transcriber.audio_loader import load_audio
             audio, sr = load_audio(self.audio_path)
             self.progress.emit(15)
@@ -51,13 +47,11 @@ class TranscriptionWorker(QThread):
                 engine = TransKunEngine(device=device)
 
                 if not engine.available:
-                    raise RuntimeError(
-                        "TransKun chưa được cài. Chạy: pip install transkun"
-                    )
+                    raise RuntimeError("TransKun not installed. Run: pip install transkun")
 
                 self.progress.emit(30)
                 self.log.emit(f"⚙️ Device: {engine.device}")
-                self.log.emit("⏳ Transcribing... (có thể mất vài phút với file dài)")
+                self.log.emit("⏳ Transcribing... (may take a few minutes for long files)")
 
                 result = engine.transcribe(
                     self.audio_path,
@@ -66,20 +60,16 @@ class TranscriptionWorker(QThread):
                     segment_hop=self.segment_hop
                 )
                 self.progress.emit(100)
-                self.log.emit(
-                    f"✅ Done! Detected ~{result.get('notes_estimated', '?')} notes"
-                )
+                self.log.emit(f"✅ Done! ~{result.get('notes_estimated', '?')} notes detected")
 
-            else:  # Spectral Onset
+            else:
                 self.log.emit("📊 Running Spectral Onset Parser...")
                 from transcriber.spectral_engine import SpectralOnsetEngine
 
                 engine = SpectralOnsetEngine(sr=sr)
                 result = engine.transcribe(audio, self.output_path)
                 self.progress.emit(100)
-                self.log.emit(
-                    f"✅ Done! Detected {result.get('notes_detected', 0)} notes"
-                )
+                self.log.emit(f"✅ Done! {result.get('notes_detected', 0)} notes detected")
 
             self.finished.emit(True, result)
 
@@ -89,6 +79,8 @@ class TranscriptionWorker(QThread):
 
 
 class TranscriberTab(QWidget):
+    load_midi_requested = pyqtSignal(str)  # Signal để load MIDI vào Playback
+
     def __init__(self):
         super().__init__()
         self.audio_path = None
@@ -100,38 +92,31 @@ class TranscriberTab(QWidget):
         layout.setSpacing(12)
         layout.setContentsMargins(16, 12, 16, 12)
 
-        # ===== Title =====
         title = QLabel("🧠 AI Audio-to-MIDI Transcriber")
         title.setStyleSheet("font-size: 17px; font-weight: bold; color: #00ff88;")
         layout.addWidget(title)
 
-        subtitle = QLabel(
-            "Convert MP3 / WAV / FLAC into note-accurate MIDI files"
-        )
+        subtitle = QLabel("Convert MP3 / WAV / FLAC into note-accurate MIDI files")
         subtitle.setStyleSheet("color: #888; font-size: 12px;")
         layout.addWidget(subtitle)
 
-        # ===== Input File =====
+        # Input
         input_group = QGroupBox("📁 Audio Input")
         input_layout = QHBoxLayout()
-
         self.file_label = QLabel("No file selected")
         self.file_label.setStyleSheet("color: #666;")
         self.file_label.setWordWrap(True)
-
         browse_btn = QPushButton("Browse...")
-        browse_btn.setToolTip("Chọn file MP3, WAV, FLAC, M4A, OGG")
+        browse_btn.setToolTip("Select MP3, WAV, FLAC, M4A, OGG")
         browse_btn.clicked.connect(self._browse_audio)
-
         input_layout.addWidget(self.file_label, 1)
         input_layout.addWidget(browse_btn)
         input_group.setLayout(input_layout)
         layout.addWidget(input_group)
 
-        # ===== Engine Selection =====
+        # Engine
         engine_group = QGroupBox("⚙️ Transcription Engine")
         engine_layout = QVBoxLayout()
-
         self.engine_combo = QComboBox()
         self.engine_combo.addItems([
             "TransKun v2 (Neural — Best for Piano)",
@@ -139,31 +124,27 @@ class TranscriberTab(QWidget):
         ])
         self.engine_combo.currentIndexChanged.connect(self._on_engine_changed)
 
-        # GPU toggle (chỉ hiện khi chọn TransKun)
         gpu_layout = QHBoxLayout()
         self.gpu_check = QCheckBox("Use GPU (CUDA)")
-        self.gpu_check.setToolTip("Tăng tốc đáng kể nếu có NVIDIA GPU")
+        self.gpu_check.setToolTip("Significant speedup if you have NVIDIA GPU")
         try:
             import torch
             self.gpu_check.setEnabled(torch.cuda.is_available())
             if not torch.cuda.is_available():
-                self.gpu_check.setToolTip("Không phát hiện GPU CUDA")
+                self.gpu_check.setToolTip("No CUDA GPU detected")
         except ImportError:
             self.gpu_check.setEnabled(False)
-            self.gpu_check.setToolTip("torch chưa được cài")
+            self.gpu_check.setToolTip("torch not installed")
 
-        # TransKun segment settings
         self.segment_size_spin = QDoubleSpinBox()
         self.segment_size_spin.setRange(5.0, 60.0)
         self.segment_size_spin.setValue(20.0)
         self.segment_size_spin.setSuffix(" s")
-        self.segment_size_spin.setToolTip("Kích thước segment xử lý")
 
         self.segment_hop_spin = QDoubleSpinBox()
         self.segment_hop_spin.setRange(2.0, 30.0)
         self.segment_hop_spin.setValue(10.0)
         self.segment_hop_spin.setSuffix(" s")
-        self.segment_hop_spin.setToolTip("Bước nhảy giữa các segment")
 
         seg_layout = QHBoxLayout()
         seg_layout.addWidget(QLabel("Segment:"))
@@ -181,22 +162,19 @@ class TranscriberTab(QWidget):
         engine_group.setLayout(engine_layout)
         layout.addWidget(engine_group)
 
-        # ===== Output =====
+        # Output
         out_group = QGroupBox("💾 Output MIDI")
         out_layout = QHBoxLayout()
-
         self.output_label = QLabel("transcription_output.mid")
         self.output_label.setStyleSheet("color: #666;")
-
         out_btn = QPushButton("Choose...")
         out_btn.clicked.connect(self._choose_output)
-
         out_layout.addWidget(self.output_label, 1)
         out_layout.addWidget(out_btn)
         out_group.setLayout(out_layout)
         layout.addWidget(out_group)
 
-        # ===== Progress & Log =====
+        # Progress & Log
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
@@ -213,7 +191,7 @@ class TranscriberTab(QWidget):
         )
         layout.addWidget(self.log_box)
 
-        # ===== Transcribe Button =====
+        # Transcribe
         self.transcribe_btn = QPushButton("▶️ Start Transcription")
         self.transcribe_btn.setStyleSheet(
             "QPushButton { background: #00ff88; color: #000; font-weight: bold; "
@@ -224,17 +202,24 @@ class TranscriberTab(QWidget):
         self.transcribe_btn.clicked.connect(self._start_transcription)
         layout.addWidget(self.transcribe_btn)
 
-        # ===== Info =====
+        # Load to Playback button (hidden until done)
+        self.load_playback_btn = QPushButton("🎹 Load into Playback Tab")
+        self.load_playback_btn.setStyleSheet(
+            "QPushButton { background: #2d2d3a; color: #00ff88; border: 1px solid #00ff88; "
+            "padding: 8px; border-radius: 6px; font-size: 12px; }"
+            "QPushButton:hover { background: #00ff88; color: #000; }"
+        )
+        self.load_playback_btn.setVisible(False)
+        self.load_playback_btn.clicked.connect(self._load_to_playback)
+        layout.addWidget(self.load_playback_btn)
+
         info = QLabel(
-            "💡 <b>TransKun v2</b>: Chính xác cao cho piano solo (F1 ~95%). "
-            "Yêu cầu cài đặt thêm.<br>"
-            "💡 <b>Spectral Onset</b>: Không cần AI, hoạt động với mọi loại nhạc, "
-            "nhưng độ chính xác thấp hơn."
+            "💡 <b>TransKun v2</b>: High accuracy for piano solo (F1 ~95%). Requires installation.<br>"
+            "💡 <b>Spectral Onset</b>: No AI needed, works with any music, but lower accuracy."
         )
         info.setStyleSheet("color: #777; font-size: 11px;")
         info.setWordWrap(True)
         layout.addWidget(info)
-
         layout.addStretch()
 
     def _on_engine_changed(self, index: int):
@@ -245,25 +230,20 @@ class TranscriberTab(QWidget):
 
     def _browse_audio(self):
         path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select Audio File",
-            "",
+            self, "Select Audio File", "",
             "Audio Files (*.mp3 *.wav *.flac *.m4a *.ogg);;All Files (*)"
         )
         if path:
             self.audio_path = path
             self.file_label.setText(Path(path).name)
             self.file_label.setStyleSheet("color: #00ff88; font-weight: bold;")
-
-            # Auto suggest output name
             out = str(Path(path).with_suffix('.mid'))
             self.output_label.setText(out)
+            self.load_playback_btn.setVisible(False)
 
     def _choose_output(self):
         path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save MIDI File",
-            self.output_label.text(),
+            self, "Save MIDI File", self.output_label.text(),
             "MIDI Files (*.mid *.midi);;All Files (*)"
         )
         if path:
@@ -281,6 +261,7 @@ class TranscriberTab(QWidget):
         use_gpu = self.gpu_check.isChecked() and self.gpu_check.isEnabled()
 
         self.transcribe_btn.setEnabled(False)
+        self.load_playback_btn.setVisible(False)
         self.progress_bar.setValue(0)
         self.log_box.clear()
 
@@ -303,13 +284,17 @@ class TranscriberTab(QWidget):
         if success:
             out_path = result.get('output', 'unknown')
             notes = result.get('notes_estimated', result.get('notes_detected', 0))
-            QMessageBox.information(
-                self,
-                "Transcription Complete",
-                f"Successfully transcribed to:\n{out_path}\n\n"
-                f"Notes detected: ~{notes}"
-            )
             self._append_log(f"💾 Saved: {out_path}")
+            self.load_playback_btn.setVisible(True)
+            self._last_mid_path = out_path
+            QMessageBox.information(
+                self, "Transcription Complete",
+                f"Successfully transcribed to:\n{out_path}\n\nNotes detected: ~{notes}"
+            )
         else:
             err = result.get('error', 'Unknown error')
             QMessageBox.critical(self, "Transcription Failed", str(err))
+
+    def _load_to_playback(self):
+        if hasattr(self, '_last_mid_path') and os.path.exists(self._last_mid_path):
+            self.load_midi_requested.emit(self._last_mid_path)
