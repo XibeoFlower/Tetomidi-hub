@@ -251,7 +251,11 @@ class PlaybackController(QObject):
             self.pedal_data_ready.emit([])
 
         self.player_thread = QThread()
-        self.player = Player(config, final_notes, sections, tempo_map)
+        try:
+            self.player = Player(config, final_notes, sections, tempo_map)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+            return
         self.player.moveToThread(self.player_thread)
 
         self.player_thread.started.connect(self.player.play)
@@ -296,7 +300,11 @@ class PlaybackController(QObject):
             self.pedal_data_ready.emit([])
 
         self.player_thread = QThread()
-        self.player = Player(config, notes, sections, tempo_map)
+        try:
+            self.player = Player(config, notes, sections, tempo_map)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+            return
         self.player.moveToThread(self.player_thread)
         self.player_thread.started.connect(self.player.play)
 
@@ -384,7 +392,11 @@ class PlaybackController(QObject):
         self.pedal_data_ready.emit(_extract_pedal_intervals(_pedal_evs))
 
         self.player_thread = QThread()
-        self.player = Player(config, [], [], dummy_tempo)
+        try:
+            self.player = Player(config, [], [], dummy_tempo)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+            return
         self.player.load_compiled_events(reconstructed_events, total_dur)
 
         self.player.moveToThread(self.player_thread)
