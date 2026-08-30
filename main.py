@@ -1,6 +1,59 @@
 #!/usr/bin/env python3
 import sys
 import os
+
+# ═══════════════════════════════════════════════════════════════
+# FIX 1: Monkey-patch pkg_resources trước khi bất kỳ thư viện nào import nó
+# Python 3.12+ không cài setuptools sẵn trong venv. transkun/torch vẫn cần
+# pkg_resources. Tạo một shim module tối thiểu để tránh crash.
+# ═══════════════════════════════════════════════════════════════
+try:
+    import pkg_resources
+except ImportError:
+    import types
+    import warnings
+    _pkg_shim = types.ModuleType('pkg_resources')
+    _pkg_shim.__version__ = '70.0.0'
+    def _resource_filename(package_or_requirement, resource_name):
+        import os
+        for p in sys.path:
+            candidate = os.path.join(p, package_or_requirement.replace('.', os.sep), resource_name)
+            if os.path.exists(candidate):
+                return candidate
+        raise FileNotFoundError(resource_name)
+    def _resource_stream(*args, **kwargs):
+        raise NotImplementedError("resource_stream stub")
+    def _resource_string(*args, **kwargs):
+        raise NotImplementedError("resource_string stub")
+    def _get_distribution(*args, **kwargs):
+        class _FakeDist:
+            version = "0.0.0"
+            def requires(self, *a, **k): return []
+        return _FakeDist()
+    _pkg_shim.resource_filename = _resource_filename
+    _pkg_shim.resource_stream = _resource_stream
+    _pkg_shim.resource_string = _resource_string
+    _pkg_shim.get_distribution = _get_distribution
+    sys.modules['pkg_resources'] = _pkg_shim
+    warnings.warn(
+        "pkg_resources not found — using minimal shim. "
+        "Consider running: pip install setuptools>=70.0.0",
+        RuntimeWarning, stacklevel=2
+    )
+
+# ═══════════════════════════════════════════════════════════════
+# FIX 2: Kiểm tra pynput sớm để báo lỗi rõ ràng thay vì im lặng khi Play
+# ═══════════════════════════════════════════════════════════════
+_pynput_available = False
+_pynput_err = ""
+try:
+    from pynput.keyboard import Controller
+    _test_ctrl = Controller()
+    _pynput_available = True
+    del _test_ctrl
+except Exception as _pe:
+    _pynput_err = str(_pe)
+
 import bisect
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QDialog
 from PyQt6.QtCore import Qt
@@ -65,6 +118,13 @@ class MainWindow(QMainWindow):
         else:
             self.ui.reset_controls_to_default()
 
+        # FIX: Cảnh báo nếu pynput không hoạt động (đặc biệt trên remote desktop)
+        if not _pynput_available:
+            self.ui.log_output.append(
+                f"[WARNING] Keyboard input backend (pynput) unavailable: {_pynput_err}\n"
+                "Playback will compile events but cannot send keys to Roblox/other apps."
+            )
+
         self._update_checker = UpdateChecker(APP_VERSION)
         self._update_checker.update_available.connect(self._on_update_available)
         self._update_checker.start()
@@ -83,7 +143,6 @@ class MainWindow(QMainWindow):
         self.ui.guitar_tab.play_button.clicked.connect(self.handle_guitar_play)
         self.ui.guitar_tab.stop_button.clicked.connect(self.handle_stop)
 
-        # ── TranscriberTab bindings (NEW) ──────────────────────────────
         self.ui.transcriber_tab.load_into_playback.connect(self._on_transcribed_midi_load)
 
         self.ui.settings_tab.save_browse_btn.clicked.connect(self._browse_save_dir)
@@ -137,9 +196,7 @@ class MainWindow(QMainWindow):
 
         self.playback_controller.visualizer_updated.connect(self._on_guitar_notes_update)
 
-    # ── Transcriber → Playback bridge (NEW) ──────────────────────────
     def _on_transcribed_midi_load(self, mid_path: str):
-        """Auto-load a MIDI file produced by the Transcriber into Playback."""
         self.loaded_save_data = None
         self.loaded_save_filename = None
         self.ui.playback_tab.playback_group.setEnabled(True)
@@ -149,7 +206,6 @@ class MainWindow(QMainWindow):
         self._parse_and_select_tracks(mid_path)
         self.ui.tabs.setCurrentIndex(0)
 
-    # --- Guitar Mode ---
     def _on_guitar_notes_update(self, pitches: list):
         notes = [(p, 100) for p in pitches]
         self.ui.guitar_tab.fretboard.set_active_notes(notes)
@@ -184,8 +240,6 @@ class MainWindow(QMainWindow):
 
         dialog = TrackSelectionDialog(tracks, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            # FIX: cung loi nhu _parse_and_select_tracks - convert dict selection
-            # sang tuple (MidiTrack, role) truoc khi dua vao PlaybackController.
             raw_selection = dialog.get_selection()
             self._guitar_selected_tracks = [
                 (tracks[item["index"]], item["hand"])
@@ -226,7 +280,6 @@ class MainWindow(QMainWindow):
         self.ui.guitar_tab.stop_button.setEnabled(True)
         self._sync_play_button()
 
-    # --- Language ---
     def _on_language_changed(self):
         lang = self.ui.settings_tab.lang_combo.currentData()
         if lang != I18nManager.get_language():
@@ -237,7 +290,6 @@ class MainWindow(QMainWindow):
                 "Ngôn ngữ đã thay đổi. Vui lòng khởi động lại ứng dụng để áp dụng đầy đủ."
             )
 
-    # --- Windows Specific GUI Modifications ---
     def _toggle_always_on_top(self, checked):
         flags = self.windowFlags()
         if checked:
@@ -249,7 +301,6 @@ class MainWindow(QMainWindow):
     def _change_opacity(self, value):
         self.setWindowOpacity(value / 100.0)
 
-    # --- Standard Execution Behaviors ---
     def _save_config(self):
         config_data = self.ui.gather_app_config()
         self.config_manager.save(config_data)
@@ -362,7 +413,6 @@ class MainWindow(QMainWindow):
     def update_progress(self, current_time):
         self.ui.update_progress(current_time, self.total_song_duration_sec)
 
-    # --- Loading & File State Dialogs ---
     def select_file(self):
         if self.playback_controller.is_playing() or self.playback_controller.is_paused():
             return
@@ -408,10 +458,6 @@ class MainWindow(QMainWindow):
 
         dialog = TrackSelectionDialog(tracks, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            # FIX: dialog.get_selection() tra ve list dict {"index","play","hand",...}
-            # nhung PlaybackController._prepare_notes() can list tuple
-            # (MidiTrack, role) chi gom cac track da tick Play. Truoc day
-            # gan thang list dict vao day se crash khi bam Play.
             raw_selection = dialog.get_selection()
             self.selected_tracks_info = [
                 (tracks[item["index"]], item["hand"])
@@ -431,7 +477,6 @@ class MainWindow(QMainWindow):
             self.ui.scrubber_slider.setEnabled(False)
             self.ui._set_save_enabled(False)
 
-    # --- Translator ---
     def _on_play_sheet(self, text: str, format_name: str, bpm: int, humanize: bool):
         if self.playback_controller.is_playing() or self.playback_controller.is_paused():
             return
@@ -521,7 +566,6 @@ class MainWindow(QMainWindow):
             f"{I18nManager.t('status_exported')}: {format_name} ({len(text.splitlines())} lines)"
         )
 
-    # --- Edit MIDI tab ---
     def _on_edit_midi_test(self, notes: list, bpm: float):
         if self.playback_controller.is_playing() or self.playback_controller.is_paused():
             QMessageBox.warning(
@@ -551,7 +595,6 @@ class MainWindow(QMainWindow):
         self.ui.log_output.append(I18nManager.t("msg_error_playback"))
         QMessageBox.critical(self, I18nManager.t("msg_hardware_error"), error_message)
 
-    # --- Core Executions ---
     def handle_save(self):
         config = self.ui.gather_playback_config()
         if not self.selected_tracks_info:
@@ -612,7 +655,6 @@ class MainWindow(QMainWindow):
         self.ui.piano_widget.set_pedal_active(False)
         self.ui.guitar_tab.fretboard.clear()
 
-    # --- Update ---
     def _manual_check_update(self):
         btn = self.ui.settings_tab.check_update_btn
         btn.setEnabled(False)
