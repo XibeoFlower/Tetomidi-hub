@@ -44,7 +44,6 @@ class Player(QObject):
         self.active_pitches: set = set()
         self.pedal_is_down = False
 
-        # Running key-net state for O(1) resume sync (maintained by _execute_chord_event)
         self._key_net: Dict[str, int] = {}
         self._key_last_press: Dict[str, KeyEvent] = {}
         self._pedal_net_down = False
@@ -62,15 +61,6 @@ class Player(QObject):
 
     @property
     def keyboard(self) -> Controller:
-        """Lazily create the pynput keyboard backend on first actual use.
-
-        Kept lazy so that Player instances used purely to *compile* events
-        (e.g. the Save feature, which never presses a real key) still work
-        even when no keyboard backend is available. The exception below
-        only surfaces once real key-sending is attempted during playback,
-        where it's already caught by _execute_playback()'s try/except and
-        reported via error_occurred instead of crashing the app.
-        """
         if self._keyboard is None:
             try:
                 self._keyboard = Controller()
@@ -107,13 +97,11 @@ class Player(QObject):
         )
         self._log_debug(f"[PIPELINE] Resync points (both hands simultaneous): {len(resync_points)}")
 
-        # Track list length so we can emit humanizer-only entries afterward
         pre_len = len(self.debug_log) if self.debug_log is not None else 0
         self.humanizer.apply_to_hand(left_hand_notes, 'left', resync_points)
         self.humanizer.apply_to_hand(right_hand_notes, 'right', resync_points)
         all_notes = sorted(left_hand_notes + right_hand_notes, key=lambda n: n.start_time)
         self.humanizer.apply_tempo_rubato(all_notes, self.sections)
-        # Humanizer._log() appends to the shared list but doesn't emit — flush those entries now
         if self.debug_log is not None:
             for msg in self.debug_log[pre_len:]:
                 self.status_updated.emit(msg)
@@ -122,20 +110,11 @@ class Player(QObject):
         self._compile_event_list(all_notes, self.sections)
 
     def export_compiled_events(self) -> List[KeyEvent]:
-        """
-        Standalone compilation pipeline for generating serialization data
-        without modifying or interrupting the hardware execution loop in play().
-        """
         self.status_updated.emit("Compiling playback events for saving...")
         self._apply_humanization_and_compile()
         return self.compiled_events
 
     def load_compiled_events(self, events: List[KeyEvent], total_duration: float):
-        """Load pre-compiled events for saved playback, bypassing the compilation pipeline.
-
-        Populates key_states so the physical simulation loop can track key presses,
-        and sets total_duration for the progress display.
-        """
         self.compiled_events = events
         self.total_duration = total_duration
         self.key_states.clear()
@@ -144,10 +123,6 @@ class Player(QObject):
                 self.key_states[ev.key_char] = KeyState(ev.key_char)
 
     def play_saved_events(self):
-        """
-        Dedicated execution branch for running pre-compiled JSON events,
-        completely skipping the internal compilation pipeline.
-        """
         self.status_updated.emit("Initiating saved playback sequence...")
         self.status_updated.emit(f"Successfully loaded {len(self.compiled_events)} physical execution instructions.")
         self.status_updated.emit("Playing from save!")
@@ -162,15 +137,16 @@ class Player(QObject):
         self._execute_playback()
 
     def _execute_playback(self):
-        """Shared playback execution: countdown → cursor loop → cleanup.
-
-        Called by both play() (after compilation) and play_saved_events()
-        (after load_compiled_events). Owns the try/except/finally so the
-        pattern is defined exactly once.
-        """
         try:
             if self.config.get('countdown'): self._run_countdown()
             if self.stop_event.is_set():
+                self.playback_finished.emit()
+                return
+
+            # FIX: Kiểm tra compiled_events rỗng trước khi vào loop
+            if not self.compiled_events:
+                self.status_updated.emit("ERROR: No compiled events to play. "
+                                         "The MIDI may be empty or all notes are unmapped.")
                 self.playback_finished.emit()
                 return
 
@@ -179,6 +155,8 @@ class Player(QObject):
             self.event_index = 0
             self.last_progress_emit_time = self.start_time
 
+            self.status_updated.emit(f"Starting playback: {len(self.compiled_events)} events, "
+                                     f"duration={self.total_duration:.2f}s")
             self._run_cursor_loop()
 
         except Exception as e:
@@ -195,7 +173,6 @@ class Player(QObject):
             self.status_updated.emit("Stopping playback...")
             self.stop_event.set()
             self.pause_event.clear()
-            # shutdown() is called by _execute_playback()'s finally block once the loop exits.
 
     def toggle_pause(self):
         if self.pause_event.is_set():
@@ -293,7 +270,6 @@ class Player(QObject):
 
         self.total_duration = self.compiled_events[-1].time if self.compiled_events else 0.0
 
-        # Compilation summary
         press_count = sum(1 for e in self.compiled_events if e.action == 'press')
         release_count = sum(1 for e in self.compiled_events if e.action == 'release')
         pedal_down = sum(1 for e in self.compiled_events if e.action == 'pedal' and e.key_char == 'down')
@@ -328,6 +304,12 @@ class Player(QObject):
 
     def _run_cursor_loop(self):
         self._log_debug("\n=== ENTERING CURSOR LOOP ===")
+        if not self.compiled_events:
+            self._log_debug("[CURSOR] No events — exiting immediately.")
+            self.status_updated.emit("Playback finished (no events).")
+            self.auto_paused.emit()
+            return
+        
         self.current_section_idx = -1
         _was_paused = False
         self._key_net.clear()
@@ -337,14 +319,12 @@ class Player(QObject):
         while not self.stop_event.is_set():
             if self.pause_event.is_set():
                 if not _was_paused:
-                    # First pause iteration: safe to release now — cursor loop owns all key presses
                     self.shutdown()
                     _was_paused = True
                 time.sleep(0.05)
                 continue
 
             if _was_paused:
-                # Just unpaused — re-press any notes that were mid-play at the pause point
                 self._sync_active_keys_at_resume()
                 _was_paused = False
 
@@ -389,7 +369,6 @@ class Player(QObject):
             else:
                 sleep_time = min(next_event.time - playback_time - 0.001, self.progress_update_interval)
                 time.sleep(max(0.0005, sleep_time))
-                # Refresh after sleep so the cursor emits current time, not pre-sleep time
                 now = time.perf_counter()
                 playback_time = (now - self.start_time) - self.total_paused_time
 
@@ -432,7 +411,6 @@ class Player(QObject):
             state = self.key_states.get(key_char)
             if not state: continue
 
-            # Only physically release when no other notes still need this key
             if net <= 0:
                 base_key = key_char
                 if key_char in self.mapper.SYMBOL_MAP: base_key = self.mapper.SYMBOL_MAP[key_char]
@@ -463,7 +441,6 @@ class Player(QObject):
             try:
                 with self.keyboard.pressed(*modifiers):
                     if was_physically_down:
-                        # Key already held by an overlapping note — re-strike for new attack
                         self.keyboard.release(base_key)
                         time.sleep(0.001)
                         self.keyboard.press(base_key)
@@ -493,11 +470,6 @@ class Player(QObject):
             except Exception: pass
 
     def _sync_active_keys_at_resume(self):
-        """Re-press any notes/pedal that were physically held at the moment of pause.
-
-        Uses the running _key_net / _key_last_press counters maintained by
-        _execute_chord_event — O(currently-held keys) instead of O(all events).
-        """
         pitch_net: Dict[int, int] = {}
         keys_repressed = []
         for key_char, count in self._key_net.items():
