@@ -41,19 +41,22 @@ class TranscriberWorker(QThread):
             self.log.emit("Initializing transcription engine...")
             self.progress.emit(10)
 
-            if self.engine_name == "TransKun v2":
-                from transcriber.transkun_engine import TransKunEngine
-                engine = TransKunEngine()
+            if self.engine_name == "ByteDance Piano":
+                from transcriber.bytedance_engine import ByteDanceEngine
+                engine = ByteDanceEngine()
                 if not engine.available:
-                    raise RuntimeError("TransKun v2 is not installed.")
-                self.log.emit("TransKun v2 loaded. Transcribing...")
+                    raise RuntimeError(
+                        "ByteDance Piano Transcription is not installed. "
+                        "Run: pip install piano_transcription_inference"
+                    )
+                self.log.emit("ByteDance model loaded. Transcribing...")
                 self.progress.emit(30)
+                # Ghi chu: lan chay dau se tu tai checkpoint (~170MB) ve may,
+                # co the mat vai chuc giay tuy toc do mang.
                 result = engine.transcribe(
                     self.audio_path, self.output_mid,
-                    segment_size=self.segment_size,
-                    segment_hop=self.segment_hop,
-                    velocity_threshold=25,   # FIX: Lọc nhiễu vocal
-                    min_duration_ms=50       # FIX: Xóa note quá ngắn
+                    velocity_threshold=0,
+                    min_duration_ms=30,
                 )
                 self.log.emit(f"Transcription complete: {result.get('notes_estimated', 0)} notes")
                 self.progress.emit(100)
@@ -107,9 +110,9 @@ class TranscriberTab(QWidget):
         engine_group = QGroupBox("⚙️ Transcription Engine")
         engine_layout = QHBoxLayout()
         self.engine_combo = QComboBox()
-        self.engine_combo.addItems(["TransKun v2", "Spectral Onset"])
+        self.engine_combo.addItems(["ByteDance Piano", "Spectral Onset"])
         self.engine_combo.setToolTip(
-            "TransKun v2: Best for piano solo (default).\n"
+            "ByteDance Piano: Nhẹ, nhanh, chính xác tốt cho piano solo (default).\n"
             "Spectral Onset: Zero-dependency fallback."
         )
         engine_layout.addWidget(QLabel("Engine:"))
