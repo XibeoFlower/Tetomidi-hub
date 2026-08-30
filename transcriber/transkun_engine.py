@@ -28,10 +28,16 @@ class TransKunEngine:
             return "cpu"
 
     def _check_module_import(self) -> bool:
-        """Kiểm tra có thể import transkun.trascribe không."""
+        """
+        Kiểm tra có thể import transkun.transcribe và có hàm main() không.
+        FIX: transkun chỉ export hàm main() (CLI entrypoint qua argparse) theo
+        setup.py của thư viện (entry_points: 'transkun = transkun.transcribe:main'),
+        KHÔNG có hàm transcribe(audioPath=..., outPath=...). Kiểm tra đúng attribute
+        để tránh crash ở bước gọi thực tế.
+        """
         try:
-            import transkun.transcribe  # noqa: F401
-            return True
+            import transkun.transcribe as tk_module
+            return hasattr(tk_module, "main")
         except ImportError:
             return False
 
@@ -87,9 +93,17 @@ class TransKunEngine:
             "--segmentSize", str(segment_size),
             "--segmentHopSize", str(segment_hop),
         ]
+        # FIX: check=False + kiểm tra returncode thủ công để giữ lại stderr thật
+        # trong thông báo lỗi (CalledProcessError.__str__() không có stderr).
         result = subprocess.run(
-            cmd, capture_output=True, text=True, check=True
+            cmd, capture_output=True, text=True, check=False
         )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "").strip()
+            raise RuntimeError(
+                f"TransKun CLI failed (exit code {result.returncode}): "
+                f"{detail[-1500:] if detail else 'no output captured'}"
+            )
         note_count = self._count_midi_notes(output_mid)
         return {
             "engine": "TransKun v2 (CLI)",
@@ -101,15 +115,45 @@ class TransKunEngine:
 
     def _transcribe_api(self, audio_path: str, output_mid: str,
                         segment_size: float, segment_hop: float) -> dict:
-        from transkun.transcribe import transcribe as tk_transcribe
+        """
+        FIX (bug quan trọng): package `transkun` KHÔNG export hàm
+        `transcribe(audioPath=..., outPath=...)` — chỉ export `main()` làm
+        entrypoint CLI (argparse), theo setup.py:
+            entry_points={'console_scripts': ['transkun = transkun.transcribe:main']}
+        Gọi `from transkun.transcribe import transcribe` sẽ ném ImportError.
+        Đây chính là đường chạy chính khi app đã đóng gói .exe (PyInstaller
+        onefile không có transkun.exe riêng trong PATH nên _has_cli luôn False),
+        nên bug này khiến transcription luôn fail ở bản build.
 
-        tk_transcribe(
-            audioPath=audio_path,
-            outPath=output_mid,
-            device=self.device,
-            segmentSize=segment_size,
-            segmentHopSize=segment_hop,
-        )
+        Fix: gọi thẳng main() bằng cách giả lập sys.argv, giống hệt cách CLI
+        thật sự hoạt động — không phụ thuộc vào chữ ký hàm nội bộ có thể đổi.
+        """
+        import sys
+        from transkun.transcribe import main as tk_main
+
+        argv_backup = sys.argv
+        try:
+            sys.argv = [
+                "transkun",
+                audio_path,
+                output_mid,
+                "--device", self.device,
+                "--segmentSize", str(segment_size),
+                "--segmentHopSize", str(segment_hop),
+            ]
+            tk_main()
+        except SystemExit as e:
+            # argparse hoặc lỗi nội bộ có thể gọi sys.exit(); code != 0 là lỗi thật
+            if e.code not in (0, None):
+                raise RuntimeError(f"TransKun (API) exited with code {e.code}")
+        finally:
+            sys.argv = argv_backup
+
+        if not os.path.isfile(output_mid):
+            raise RuntimeError(
+                "TransKun (API) finished but no output MIDI file was produced."
+            )
+
         note_count = self._count_midi_notes(output_mid)
         return {
             "engine": "TransKun v2 (API)",
@@ -149,11 +193,17 @@ class TransKunEngine:
             mid = mido.MidiFile(mid_path)
             ticks_per_beat = mid.ticks_per_beat
             # Giả định tempo mặc định 500000 microseconds/beat (120 BPM)
+            # FIX: break chỉ thoát vòng lặp trong -> có thể bị track sau ghi đè
+            # nhầm tempo. Dùng flag để dừng hẳn khi đã tìm thấy set_tempo đầu tiên.
             tempo = 500000
+            tempo_found = False
             for track in mid.tracks:
+                if tempo_found:
+                    break
                 for msg in track:
                     if msg.type == 'set_tempo':
                         tempo = msg.tempo
+                        tempo_found = True
                         break
 
             # Chuyển ms -> ticks
