@@ -1,300 +1,362 @@
 """
-TranscriberTab — AI Audio-to-MIDI Transcription
-Tích hợp TransKun v2 + Spectral Onset fallback
+TranscriberTab — MP3/Audio → MIDI transcription.
 """
 import os
+import time
+import shutil
+import tempfile
 from pathlib import Path
+
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QFileDialog, QProgressBar, QTextEdit, QComboBox, QGroupBox,
-    QCheckBox, QMessageBox, QDoubleSpinBox
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QLineEdit, QFileDialog, QComboBox, QSpinBox, QDoubleSpinBox,
+    QProgressBar, QMessageBox, QGroupBox, QGridLayout, QCheckBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
-from managers.i18n import I18nManager
+from core.core import MidiParser
+from ui.TrackSelectionDialog import TrackSelectionDialog
 
 
-class TranscriptionWorker(QThread):
+class TranscriberWorker(QThread):
+    finished = pyqtSignal(bool, str)
     progress = pyqtSignal(int)
     log = pyqtSignal(str)
-    finished = pyqtSignal(bool, dict)
 
-    def __init__(self, audio_path: str, output_path: str,
-                 engine: str, use_gpu: bool,
-                 segment_size: float = 20.0, segment_hop: float = 10.0):
-        super().__init__()
+    def __init__(self, engine_name: str, audio_path: str, output_mid: str,
+                 segment_size: float, segment_hop: float, parent=None):
+        super().__init__(parent)
+        self.engine_name = engine_name
         self.audio_path = audio_path
-        self.output_path = output_path
-        self.engine = engine
-        self.use_gpu = use_gpu
+        self.output_mid = output_mid
         self.segment_size = segment_size
         self.segment_hop = segment_hop
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
 
     def run(self):
         try:
-            self.log.emit(f"🎵 Loading audio: {Path(self.audio_path).name}")
-            self.progress.emit(5)
+            self.log.emit("Initializing transcription engine...")
+            self.progress.emit(10)
 
-            from transcriber.audio_loader import load_audio
-            audio, sr = load_audio(self.audio_path)
-            self.progress.emit(15)
-
-            if self.engine == "TransKun v2 (Neural)":
-                self.log.emit("🧠 Initializing TransKun v2...")
+            if self.engine_name == "TransKun v2":
                 from transcriber.transkun_engine import TransKunEngine
-
-                device = "cuda" if self.use_gpu else "cpu"
-                engine = TransKunEngine(device=device)
-
+                engine = TransKunEngine()
                 if not engine.available:
-                    raise RuntimeError("TransKun not installed. Run: pip install transkun")
-
+                    raise RuntimeError("TransKun v2 is not installed.")
+                self.log.emit("TransKun v2 loaded. Transcribing...")
                 self.progress.emit(30)
-                self.log.emit(f"⚙️ Device: {engine.device}")
-                self.log.emit("⏳ Transcribing... (may take a few minutes for long files)")
-
                 result = engine.transcribe(
-                    self.audio_path,
-                    self.output_path,
+                    self.audio_path, self.output_mid,
                     segment_size=self.segment_size,
-                    segment_hop=self.segment_hop
+                    segment_hop=self.segment_hop,
+                    velocity_threshold=25,   # FIX: Lọc nhiễu vocal
+                    min_duration_ms=50       # FIX: Xóa note quá ngắn
                 )
+                self.log.emit(f"Transcription complete: {result.get('notes_estimated', 0)} notes")
                 self.progress.emit(100)
-                self.log.emit(f"✅ Done! ~{result.get('notes_estimated', '?')} notes detected")
+                self.finished.emit(True, self.output_mid)
+
+            elif self.engine_name == "Spectral Onset":
+                from transcriber.spectral_engine import SpectralEngine
+                engine = SpectralEngine()
+                self.log.emit("Spectral Onset engine loaded. Transcribing...")
+                self.progress.emit(30)
+                engine.transcribe(self.audio_path, self.output_mid)
+                self.log.emit("Spectral transcription complete.")
+                self.progress.emit(100)
+                self.finished.emit(True, self.output_mid)
 
             else:
-                self.log.emit("📊 Running Spectral Onset Parser...")
-                from transcriber.spectral_engine import SpectralOnsetEngine
-
-                engine = SpectralOnsetEngine(sr=sr)
-                result = engine.transcribe(audio, self.output_path)
-                self.progress.emit(100)
-                self.log.emit(f"✅ Done! {result.get('notes_detected', 0)} notes detected")
-
-            self.finished.emit(True, result)
+                raise RuntimeError(f"Unknown engine: {self.engine_name}")
 
         except Exception as e:
-            self.log.emit(f"❌ Error: {str(e)}")
-            self.finished.emit(False, {"error": str(e)})
+            self.log.emit(f"Error: {str(e)}")
+            self.finished.emit(False, str(e))
 
 
 class TranscriberTab(QWidget):
-    load_midi_requested = pyqtSignal(str)  # Signal để load MIDI vào Playback
+    """Tab điều khiển transcription audio → MIDI."""
 
-    def __init__(self):
-        super().__init__()
-        self.audio_path = None
-        self.worker = None
+    load_into_playback = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.worker: TranscriberWorker | None = None
+        self._last_mid_path: str | None = None   # FIX: Lưu đường dẫn output
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
-        layout.setContentsMargins(16, 12, 16, 12)
 
-        title = QLabel("🧠 AI Audio-to-MIDI Transcriber")
-        title.setStyleSheet("font-size: 17px; font-weight: bold; color: #00ff88;")
-        layout.addWidget(title)
-
-        subtitle = QLabel("Convert MP3 / WAV / FLAC into note-accurate MIDI files")
-        subtitle.setStyleSheet("color: #888; font-size: 12px;")
-        layout.addWidget(subtitle)
-
-        # Input
-        input_group = QGroupBox("📁 Audio Input")
-        input_layout = QHBoxLayout()
-        self.file_label = QLabel("No file selected")
-        self.file_label.setStyleSheet("color: #666;")
-        self.file_label.setWordWrap(True)
-        browse_btn = QPushButton("Browse...")
-        browse_btn.setToolTip("Select MP3, WAV, FLAC, M4A, OGG")
-        browse_btn.clicked.connect(self._browse_audio)
-        input_layout.addWidget(self.file_label, 1)
-        input_layout.addWidget(browse_btn)
-        input_group.setLayout(input_layout)
-        layout.addWidget(input_group)
-
-        # Engine
+        # --- Engine selection ---
         engine_group = QGroupBox("⚙️ Transcription Engine")
-        engine_layout = QVBoxLayout()
+        engine_layout = QHBoxLayout()
         self.engine_combo = QComboBox()
-        self.engine_combo.addItems([
-            "TransKun v2 (Neural — Best for Piano)",
-            "Spectral Onset (Zero-Dependency — Universal)"
-        ])
-        self.engine_combo.currentIndexChanged.connect(self._on_engine_changed)
-
-        gpu_layout = QHBoxLayout()
-        self.gpu_check = QCheckBox("Use GPU (CUDA)")
-        self.gpu_check.setToolTip("Significant speedup if you have NVIDIA GPU")
-        try:
-            import torch
-            self.gpu_check.setEnabled(torch.cuda.is_available())
-            if not torch.cuda.is_available():
-                self.gpu_check.setToolTip("No CUDA GPU detected")
-        except ImportError:
-            self.gpu_check.setEnabled(False)
-            self.gpu_check.setToolTip("torch not installed")
-
-        self.segment_size_spin = QDoubleSpinBox()
-        self.segment_size_spin.setRange(5.0, 60.0)
-        self.segment_size_spin.setValue(20.0)
-        self.segment_size_spin.setSuffix(" s")
-
-        self.segment_hop_spin = QDoubleSpinBox()
-        self.segment_hop_spin.setRange(2.0, 30.0)
-        self.segment_hop_spin.setValue(10.0)
-        self.segment_hop_spin.setSuffix(" s")
-
-        seg_layout = QHBoxLayout()
-        seg_layout.addWidget(QLabel("Segment:"))
-        seg_layout.addWidget(self.segment_size_spin)
-        seg_layout.addWidget(QLabel("Hop:"))
-        seg_layout.addWidget(self.segment_hop_spin)
-        seg_layout.addStretch()
-
-        gpu_layout.addWidget(self.gpu_check)
-        gpu_layout.addStretch()
-
-        engine_layout.addWidget(self.engine_combo)
-        engine_layout.addLayout(gpu_layout)
-        engine_layout.addLayout(seg_layout)
+        self.engine_combo.addItems(["TransKun v2", "Spectral Onset"])
+        self.engine_combo.setToolTip(
+            "TransKun v2: Best for piano solo (default).\n"
+            "Spectral Onset: Zero-dependency fallback."
+        )
+        engine_layout.addWidget(QLabel("Engine:"))
+        engine_layout.addWidget(self.engine_combo, 1)
         engine_group.setLayout(engine_layout)
         layout.addWidget(engine_group)
 
-        # Output
+        # --- Audio file input ---
+        file_group = QGroupBox("🎵 Input Audio File")
+        file_layout = QHBoxLayout()
+        self.audio_path_edit = QLineEdit()
+        self.audio_path_edit.setPlaceholderText("Select an audio file (MP3, WAV, FLAC, OGG)...")
+        self.browse_btn = QPushButton("Browse...")
+        self.browse_btn.clicked.connect(self._browse_audio)
+        file_layout.addWidget(self.audio_path_edit, 1)
+        file_layout.addWidget(self.browse_btn)
+        file_group.setLayout(file_layout)
+        layout.addWidget(file_group)
+
+        # --- Segment settings ---
+        seg_group = QGroupBox("📐 Segment Settings")
+        seg_grid = QGridLayout()
+
+        seg_grid.addWidget(QLabel("Segment Size (s):"), 0, 0)
+        self.seg_size_spin = QDoubleSpinBox()
+        self.seg_size_spin.setRange(5.0, 60.0)
+        self.seg_size_spin.setValue(30.0)   # FIX: Tăng từ 20 lên 30 để ít lỗi hơn
+        self.seg_size_spin.setDecimals(1)
+        seg_grid.addWidget(self.seg_size_spin, 0, 1)
+
+        seg_grid.addWidget(QLabel("Hop Size (s):"), 0, 2)
+        self.seg_hop_spin = QDoubleSpinBox()
+        self.seg_hop_spin.setRange(2.5, 30.0)
+        self.seg_hop_spin.setValue(15.0)    # FIX: Tăng từ 10 lên 15
+        self.seg_hop_spin.setDecimals(1)
+        seg_grid.addWidget(self.seg_hop_spin, 0, 3)
+
+        seg_group.setLayout(seg_grid)
+        layout.addWidget(seg_group)
+
+        # --- Output settings ---
         out_group = QGroupBox("💾 Output MIDI")
         out_layout = QHBoxLayout()
-        self.output_label = QLabel("transcription_output.mid")
-        self.output_label.setStyleSheet("color: #666;")
-        out_btn = QPushButton("Choose...")
-        out_btn.clicked.connect(self._choose_output)
-        out_layout.addWidget(self.output_label, 1)
-        out_layout.addWidget(out_btn)
+        self.output_path_edit = QLineEdit()
+        self.output_path_edit.setPlaceholderText("Output MIDI path (auto-generated if empty)...")
+        self.out_browse_btn = QPushButton("Browse...")
+        self.out_browse_btn.clicked.connect(self._browse_output)
+        out_layout.addWidget(self.output_path_edit, 1)
+        out_layout.addWidget(self.out_browse_btn)
         out_group.setLayout(out_layout)
         layout.addWidget(out_group)
 
-        # Progress & Log
+        # --- Controls ---
+        ctrl_layout = QHBoxLayout()
+        self.transcribe_btn = QPushButton("▶️ Start Transcription")
+        self.transcribe_btn.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.transcribe_btn.clicked.connect(self._start_transcription)
+
+        self.cancel_btn = QPushButton("⏹ Cancel")
+        self.cancel_btn.setEnabled(False)
+        self.cancel_btn.clicked.connect(self._cancel_transcription)
+
+        ctrl_layout.addWidget(self.transcribe_btn)
+        ctrl_layout.addWidget(self.cancel_btn)
+        layout.addLayout(ctrl_layout)
+
+        # --- Progress ---
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
-        self.progress_bar.setTextVisible(True)
         layout.addWidget(self.progress_bar)
 
-        self.log_box = QTextEdit()
-        self.log_box.setReadOnly(True)
-        self.log_box.setMaximumHeight(140)
-        self.log_box.setPlaceholderText("Transcription log will appear here...")
-        self.log_box.setStyleSheet(
-            "QTextEdit { background: #1a1a2e; color: #00ff88; "
-            "border: 1px solid #333; border-radius: 4px; font-family: monospace; }"
-        )
-        layout.addWidget(self.log_box)
+        self.status_label = QLabel("Ready.")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.status_label)
 
-        # Transcribe
-        self.transcribe_btn = QPushButton("▶️ Start Transcription")
-        self.transcribe_btn.setStyleSheet(
-            "QPushButton { background: #00ff88; color: #000; font-weight: bold; "
-            "padding: 10px; border-radius: 6px; font-size: 13px; }"
-            "QPushButton:hover { background: #00cc66; }"
-            "QPushButton:disabled { background: #444; color: #888; }"
-        )
-        self.transcribe_btn.clicked.connect(self._start_transcription)
-        layout.addWidget(self.transcribe_btn)
+        # --- Post-transcription actions (FIX: Thêm nút Select Tracks và Discard) ---
+        action_group = QGroupBox("✅ Post-Transcription Actions")
+        action_layout = QHBoxLayout()
 
-        # Load to Playback button (hidden until done)
+        self.select_tracks_btn = QPushButton("☑️ Select Tracks to Keep")
+        self.select_tracks_btn.setToolTip("Chọn/bỏ chọn track trước khi load vào Playback")
+        self.select_tracks_btn.setVisible(False)
+        self.select_tracks_btn.clicked.connect(self._on_select_tracks_clicked)
+
         self.load_playback_btn = QPushButton("🎹 Load into Playback Tab")
-        self.load_playback_btn.setStyleSheet(
-            "QPushButton { background: #2d2d3a; color: #00ff88; border: 1px solid #00ff88; "
-            "padding: 8px; border-radius: 6px; font-size: 12px; }"
-            "QPushButton:hover { background: #00ff88; color: #000; }"
-        )
         self.load_playback_btn.setVisible(False)
-        self.load_playback_btn.clicked.connect(self._load_to_playback)
-        layout.addWidget(self.load_playback_btn)
+        self.load_playback_btn.clicked.connect(self._on_load_playback)
 
-        info = QLabel(
-            "💡 <b>TransKun v2</b>: High accuracy for piano solo (F1 ~95%). Requires installation.<br>"
-            "💡 <b>Spectral Onset</b>: No AI needed, works with any music, but lower accuracy."
-        )
-        info.setStyleSheet("color: #777; font-size: 11px;")
-        info.setWordWrap(True)
-        layout.addWidget(info)
+        self.discard_btn = QPushButton("🗑️ Discard Output")
+        self.discard_btn.setToolTip("Xóa file MIDI vừa tạo và hủy output")
+        self.discard_btn.setVisible(False)
+        self.discard_btn.setStyleSheet("color: #c0392b;")
+        self.discard_btn.clicked.connect(self._on_discard_clicked)
+
+        action_layout.addWidget(self.select_tracks_btn)
+        action_layout.addWidget(self.load_playback_btn)
+        action_layout.addWidget(self.discard_btn)
+        action_group.setLayout(action_layout)
+        layout.addWidget(action_group)
+
         layout.addStretch()
-
-    def _on_engine_changed(self, index: int):
-        is_transkun = (index == 0)
-        self.gpu_check.setVisible(is_transkun)
-        self.segment_size_spin.setVisible(is_transkun)
-        self.segment_hop_spin.setVisible(is_transkun)
 
     def _browse_audio(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Select Audio File", "",
-            "Audio Files (*.mp3 *.wav *.flac *.m4a *.ogg);;All Files (*)"
+            "Audio Files (*.mp3 *.wav *.flac *.ogg *.m4a);;All Files (*)"
         )
         if path:
-            self.audio_path = path
-            self.file_label.setText(Path(path).name)
-            self.file_label.setStyleSheet("color: #00ff88; font-weight: bold;")
-            out = str(Path(path).with_suffix('.mid'))
-            self.output_label.setText(out)
-            self.load_playback_btn.setVisible(False)
+            self.audio_path_edit.setText(path)
+            # Auto-generate output path
+            base = Path(path).stem
+            out = Path(tempfile.gettempdir()) / f"{base}_transcribed.mid"
+            self.output_path_edit.setText(str(out))
 
-    def _choose_output(self):
+    def _browse_output(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save MIDI File", self.output_label.text(),
-            "MIDI Files (*.mid *.midi);;All Files (*)"
+            self, "Save MIDI As", "", "MIDI Files (*.mid)"
         )
         if path:
-            if not path.lower().endswith(('.mid', '.midi')):
-                path += '.mid'
-            self.output_label.setText(path)
+            if not path.endswith(".mid"):
+                path += ".mid"
+            self.output_path_edit.setText(path)
 
     def _start_transcription(self):
-        if not self.audio_path:
-            QMessageBox.warning(self, "No File", "Please select an audio file first!")
+        audio_path = self.audio_path_edit.text().strip()
+        if not audio_path or not os.path.isfile(audio_path):
+            QMessageBox.warning(self, "No Audio File", "Please select a valid audio file.")
             return
 
-        output = self.output_label.text()
+        output_path = self.output_path_edit.text().strip()
+        if not output_path:
+            base = Path(audio_path).stem
+            output_path = str(Path(tempfile.gettempdir()) / f"{base}_transcribed.mid")
+            self.output_path_edit.setText(output_path)
+
         engine = self.engine_combo.currentText()
-        use_gpu = self.gpu_check.isChecked() and self.gpu_check.isEnabled()
+        seg_size = self.seg_size_spin.value()
+        seg_hop = self.seg_hop_spin.value()
 
         self.transcribe_btn.setEnabled(False)
-        self.load_playback_btn.setVisible(False)
+        self.cancel_btn.setEnabled(True)
         self.progress_bar.setValue(0)
-        self.log_box.clear()
+        self.status_label.setText("Transcribing... please wait.")
 
-        seg_size = self.segment_size_spin.value()
-        seg_hop = self.segment_hop_spin.value()
+        # Ẩn các nút post-transcription
+        self.select_tracks_btn.setVisible(False)
+        self.load_playback_btn.setVisible(False)
+        self.discard_btn.setVisible(False)
 
-        self.worker = TranscriptionWorker(
-            self.audio_path, output, engine, use_gpu, seg_size, seg_hop
+        self.worker = TranscriberWorker(
+            engine, audio_path, output_path, seg_size, seg_hop, parent=self
         )
         self.worker.progress.connect(self.progress_bar.setValue)
-        self.worker.log.connect(self._append_log)
+        self.worker.log.connect(self._on_log)
         self.worker.finished.connect(self._on_finished)
         self.worker.start()
 
-    def _append_log(self, msg: str):
-        self.log_box.append(msg)
+    def _cancel_transcription(self):
+        if self.worker and self.worker.isRunning():
+            self.worker.cancel()
+            self.status_label.setText("Cancelling...")
+            self.worker.wait(3000)
+        self._reset_ui()
 
-    def _on_finished(self, success: bool, result: dict):
+    def _on_log(self, msg: str):
+        self.status_label.setText(msg)
+
+    def _on_finished(self, success: bool, result: str):
         self.transcribe_btn.setEnabled(True)
+        self.cancel_btn.setEnabled(False)
+
         if success:
-            out_path = result.get('output', 'unknown')
-            notes = result.get('notes_estimated', result.get('notes_detected', 0))
-            self._append_log(f"💾 Saved: {out_path}")
+            self._last_mid_path = result   # FIX: Lưu lại đường dẫn
+            self.status_label.setText(f"✅ Transcription saved to: {result}")
+            self.progress_bar.setValue(100)
+
+            # FIX: Hiển thị các nút post-transcription
+            self.select_tracks_btn.setVisible(True)
             self.load_playback_btn.setVisible(True)
-            self._last_mid_path = out_path
+            self.discard_btn.setVisible(True)
+
             QMessageBox.information(
                 self, "Transcription Complete",
-                f"Successfully transcribed to:\n{out_path}\n\nNotes detected: ~{notes}"
+                f"MIDI file saved to:\n{result}\n\n"
+                f"You can now:\n"
+                f"• 'Select Tracks to Keep' — bỏ tick track không cần\n"
+                f"• 'Load into Playback Tab' — đưa vào tab chơi\n"
+                f"• 'Discard Output' — xóa file nếu không vừa ý"
             )
         else:
-            err = result.get('error', 'Unknown error')
-            QMessageBox.critical(self, "Transcription Failed", str(err))
+            self.status_label.setText(f"❌ Error: {result}")
+            self.progress_bar.setValue(0)
+            QMessageBox.critical(self, "Transcription Failed", result)
 
-    def _load_to_playback(self):
-        if hasattr(self, '_last_mid_path') and os.path.exists(self._last_mid_path):
-            self.load_midi_requested.emit(self._last_mid_path)
+    def _on_select_tracks_clicked(self):
+        """FIX #2: Mở TrackSelectionDialog để chọn/bỏ chọn track trước khi load."""
+        if not self._last_mid_path or not os.path.isfile(self._last_mid_path):
+            QMessageBox.warning(self, "No Output", "No transcription output available.")
+            return
+
+        try:
+            tracks, _ = MidiParser.parse_structure(self._last_mid_path, 1.0, None)
+            if not tracks:
+                QMessageBox.information(self, "No Tracks", "No playable tracks found in output.")
+                return
+
+            dialog = TrackSelectionDialog(tracks, self)
+            if dialog.exec() == TrackSelectionDialog.DialogCode.Accepted:
+                selection = dialog.get_selection()
+                # Lưu lại selection để dùng khi load playback
+                self._track_selection = selection
+                selected_count = sum(1 for s in selection if s["play"])
+                self.status_label.setText(
+                    f"Track selection updated: {selected_count}/{len(selection)} tracks enabled"
+                )
+            else:
+                # User bấm Cancel trong dialog → không làm gì
+                self.status_label.setText("Track selection cancelled.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open track selection:\n{str(e)}")
+
+    def _on_load_playback(self):
+        if self._last_mid_path and os.path.isfile(self._last_mid_path):
+            self.load_into_playback.emit(self._last_mid_path)
+            self.status_label.setText("Loaded into Playback tab.")
+        else:
+            QMessageBox.warning(self, "No Output", "No transcription output to load.")
+
+    def _on_discard_clicked(self):
+        """FIX #2: Xóa file output MIDI và reset trạng thái."""
+        if not self._last_mid_path:
+            return
+
+        reply = QMessageBox.question(
+            self, "Discard Output",
+            f"Bạn có chắc muốn xóa file output?\n\n{self._last_mid_path}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                if os.path.isfile(self._last_mid_path):
+                    os.remove(self._last_mid_path)
+                self.status_label.setText("🗑️ Output discarded. Ready for new transcription.")
+                self._last_mid_path = None
+                self.progress_bar.setValue(0)
+                self.select_tracks_btn.setVisible(False)
+                self.load_playback_btn.setVisible(False)
+                self.discard_btn.setVisible(False)
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to delete file:\n{str(e)}")
+
+    def _reset_ui(self):
+        self.transcribe_btn.setEnabled(True)
+        self.cancel_btn.setEnabled(False)
+        self.progress_bar.setValue(0)
+        self.select_tracks_btn.setVisible(False)
+        self.load_playback_btn.setVisible(False)
+        self.discard_btn.setVisible(False)
